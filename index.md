@@ -1,7 +1,7 @@
 ---
-title: /Neon's homepage
+title: /Neon 의 홈페이지
 layout: home
-permalink: /homepage
+permalink: /home
 ---
 
 # 환영합니다.
