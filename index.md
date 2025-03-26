@@ -1,14 +1,9 @@
 ---
 title: /Neon's homepage
 layout: home
-permalink: /
+permalink: /homepage
 ---
 
-# Other Demo Pages
+# 환영합니다.
 
-[Light](https://b2a3e8.github.io/jekyll-theme-console-demo-light/)
-[Hacker](https://b2a3e8.github.io/jekyll-theme-console-demo-hacker/)
-
-# Welcome
-
-Bla bla bla bla. Bla bla bla bla bla bla bla bla.
+여기는 Neon 의 아주 개인적인 홈페이지입니다.
