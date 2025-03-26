@@ -1,12 +1,15 @@
-# Example Site settings
-
 #google_analytics: UA-NNNNNNNN-N
+
+title: "Neon's now"
+description: "A jekyll theme inspired by linux consoles for hackers, developers and script kiddies."
+baseurl: ""
+url: "https://neonsnow.net"
 
 header_pages:
   - index.md
   - about.md
 
-footer: 'follow us on <a href="https://twitter.com/">twitter</a>'
+footer: 'Nothing but true.'
 
 style: light # dark (default) or light
 listen_for_clients_preferred_style: true # true or false (default)
