@@ -1,5 +1,5 @@
 ---
-title: /
+title: /Neon's homepage
 layout: home
 permalink: /
 ---
