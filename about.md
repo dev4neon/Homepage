@@ -4,4 +4,4 @@ layout: page
 permalink: /about
 ---
 
-Neon's personal homepage..
+Neon's personal homepage.
