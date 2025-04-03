@@ -1,0 +1,28 @@
+{{ define "main" }}
+    <h1 id="{{ .Title | urlize }}">{{ .Title | markdownify }}</h1>
+
+    {{ .Content }}
+
+    <ul>
+    {{ range .Pages }}
+        {{ .Render "li" }}
+    {{ end }}
+    </ul>
+    <div style="margin-left: 1em;">
+        {{ if .Paginator.HasPrev }}
+          <a href="{{ .Paginator.Prev.URL }}">«</a>
+        {{ end }}
+    
+        {{ range .Paginator.Pagers }}
+          <a href="{{ .URL }}">{{ .PageNumber }}</a>
+        {{ end }}
+    
+        {{ if .Paginator.HasNext }}
+          <a href="{{ .Paginator.Next.URL }}">»</a>
+        {{ end }}
+      </div>
+{{ end }}
+
+{{define "aside" }}
+    {{ if .Params.description }}<p>{{ .Params.description }}</p>{{ end }}
+{{ end }}

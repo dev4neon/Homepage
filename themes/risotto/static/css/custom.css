@@ -1,0 +1,40 @@
+@font-face {
+  font-family: 'D2Coding';
+  src: url('/fonts/D2Coding.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+pre, code {
+  font-family: 'D2Coding', monospace !important;
+}
+
+.numpagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.pagination a {
+  text-decoration: none;
+}
+
+.pagination .prev {
+  text-align: left;
+}
+
+.pagination .next {
+  text-align: right;
+}
