@@ -1,15 +1,15 @@
 baseURL = "https://neonsnow.net"
 theme = "risotto"
-title = "Neon's now."
-author = "Neon"
-copyright = "Contents by [Neon](https://neonsnow.net)."
+title = "neon's now."
+author = "neon"
+copyright = "Contents by [neon](https://neonsnow.net)."
 languageCode = "en"
 DefaultContentLanguage = "en"
 enableInlineShortcodes = true
+lastmod = [":fileModTime", "lastmod", "date", "publishDate"]
 # prevent build failures when using Hugo's Instagram shortcode due to deprecated Instagram API.
 # See https://github.com/gohugoio/hugo/issues/7228#issuecomment-714490456
 ignoreErrors = ["error-remote-getjson"]
-
 # Automatically add content sections to main menu
 sectionPagesMenu = "main"
 
@@ -27,7 +27,7 @@ palette = "tokyo-night-dark"
 # Sidebar: about/bio
 [params.about]
 title = "Neon"
-description = "네온이 쓰는 잡다한 블로그."
+description = "잡다한 블로그."
 # unicode/emoji logo:
 logo = "🍚"
 # or use an image:
@@ -57,7 +57,7 @@ url = "https://orcid.org/0000-0001-2345-6789"
 
   [[menu.main]]
     identifier = "about"
-    name = "About"
+    name = "about"
     url = "/about/"
     weight = 10
 
@@ -85,10 +85,10 @@ unsafe = true
     disabled = false
     simple = true
 
-  [privacy.twitter]
-    disabled = false
-    enableDNT = true
-    simple = true
+#  [privacy.twitter]
+#    disabled = false
+#    enableDNT = true
+#    simple = true
 
   [privacy.instagram]
     disabled = false

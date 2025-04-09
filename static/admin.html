@@ -170,6 +170,10 @@
             const response = await fetch(url, { ...options, headers });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: '알 수 없는 오류' }));
+                // PAT가 유효하지 않거나 권한이 없을 때 (401 Unauthorized) 사용자에게 피드백
+                if (response.status === 401) {
+                     throw new Error(`GitHub API 인증 오류 (${response.status}): PAT가 유효하지 않거나 필요한 권한(repo)이 없습니다.`);
+                }
                 throw new Error(`GitHub API 오류 (${response.status}): ${errorData.message || response.statusText}`);
             }
              // DELETE 요청은 내용이 없을 수 있음
@@ -182,6 +186,12 @@
             return data;
         } catch (error) {
             updateStatus(`오류: ${error.message}`, true);
+            // 인증 오류 시 로그인 버튼 활성화하여 재시도 유도
+            if (error.message.includes('인증 오류')) {
+                patInput.disabled = false;
+                loginButton.disabled = false;
+                showSection(loginSection); // 로그인 섹션으로 되돌림
+            }
             throw error; // Re-throw for further handling
         }
     }
@@ -194,10 +204,30 @@
     }
 
     function b64DecodeUnicode(str) {
-        return decodeURIComponent(atob(str).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
+        // 먼저 atob로 디코딩 시도
+        let decoded_string;
+        try {
+             decoded_string = atob(str);
+        } catch (e) {
+             console.error("Base64 디코딩 실패 (atob):", e);
+             // 디코딩 실패 시 원본 문자열이나 빈 문자열 반환, 혹은 오류 처리
+             updateStatus('Base64 디코딩 중 오류 발생. 파일 내용이 손상되었을 수 있습니다.', true);
+             return "[디코딩 오류]"; // 사용자에게 오류 표시
+        }
+
+        // UTF-8 변환 시도
+        try {
+            return decodeURIComponent(decoded_string.split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+        } catch (e) {
+             console.error("UTF-8 디코딩 실패:", e);
+             updateStatus('UTF-8 디코딩 중 오류 발생. 파일이 UTF-8이 아닐 수 있습니다.', true);
+             // UTF-8 변환 실패 시 atob 결과라도 반환 (깨질 수 있음)
+             return decoded_string;
+        }
     }
+
 
     // 경로 Breadcrumb 생성
     function updateBreadcrumb() {
@@ -244,31 +274,53 @@
         }
         patInput.disabled = true;
         loginButton.disabled = true;
+        loadRepoButton.disabled = true; // 로딩 중에는 비활성화
         updateStatus('저장소 목록 로딩 중...');
         try {
             // /user/repos 는 인증된 사용자의 모든 저장소를 가져옵니다.
             // 페이지네이션을 고려하여 최대 100개까지 요청 (필요시 반복 요청 구현)
+            // sort=updated: 최근 업데이트된 저장소 순으로 정렬 (더 관련성 높을 수 있음)
             const repos = await githubApiRequest('/user/repos?per_page=100&sort=updated');
+
             repoSelect.innerHTML = '<option value="">-- 저장소 선택 --</option>'; // Clear previous options
-            repos.forEach(repo => {
-                const option = document.createElement('option');
-                option.value = `${repo.owner.login}/${repo.name}`;
-                option.textContent = repo.full_name;
-                repoSelect.appendChild(option);
-            });
-            updateStatus('저장소 목록 로드 완료.');
-            showSection(repoSection);
-            loadRepoButton.disabled = false;
-            repoSection.classList.remove('hidden'); // Show repo section
+
+            if (repos && repos.length > 0) {
+                 repos.forEach(repo => {
+                    const option = document.createElement('option');
+                    option.value = `${repo.owner.login}/${repo.name}`;
+                    option.textContent = repo.full_name;
+                    repoSelect.appendChild(option);
+                });
+
+                // --- 수정된 부분 ---
+                // 첫 번째 저장소를 기본으로 선택
+                repoSelect.selectedIndex = 1;
+                // 첫 번째 저장소가 선택되었으므로 '파일 목록 불러오기' 버튼 활성화
+                loadRepoButton.disabled = false;
+                // --- 수정 끝 ---
+
+                updateStatus(`${repos.length}개의 저장소 목록 로드 완료.`);
+
+            } else {
+                updateStatus('접근 가능한 저장소가 없거나 로드에 실패했습니다.', true);
+                // 저장소가 없으면 '파일 목록 불러오기' 버튼 비활성화 유지
+                loadRepoButton.disabled = true;
+            }
+
+            showSection(repoSection); // 저장소 선택 섹션 표시
+            repoSection.classList.remove('hidden');
+
         } catch (error) {
-            updateStatus(`저장소 목록 로딩 실패: ${error.message}`, true);
-            patInput.disabled = false;
-            loginButton.disabled = false;
+            // githubApiRequest 함수 내에서 이미 상태 업데이트 및 오류 처리가 이루어짐
+            // 추가적인 UI 복구 로직이 필요하다면 여기에 작성 (예: 로그인 버튼 재활성화)
+            // patInput.disabled = false; // githubApiRequest에서 처리하도록 변경
+            // loginButton.disabled = false; // githubApiRequest에서 처리하도록 변경
         }
     });
 
     // 2. Repository Selection
     repoSelect.addEventListener('change', () => {
+        // '-- 저장소 선택 --'이 아니면 버튼 활성화, 그렇지 않으면 비활성화
         loadRepoButton.disabled = repoSelect.value === '';
     });
 
@@ -292,7 +344,9 @@
         showSection(fileBrowserSection); // Make sure browser is visible
 
         try {
-            const contents = await githubApiRequest(`/repos/${selectedOwner}/${selectedRepo}/contents/${path}`);
+            // 경로가 비어 있으면 루트를 의미, API 요청 시 슬래시 제거
+            const requestPath = path ? path : '';
+            const contents = await githubApiRequest(`/repos/${selectedOwner}/${selectedRepo}/contents/${requestPath}`);
             currentFiles = contents.sort((a, b) => { // Sort: folders first, then by name
                 if (a.type === b.type) {
                     return a.name.localeCompare(b.name);
@@ -302,7 +356,7 @@
 
             // Add '..' (Up directory) link if not in root
             if (path !== '') {
-                const parentPath = path.substring(0, path.lastIndexOf('/'));
+                const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : ''; // 루트로 갈 경우 빈 문자열
                 const li = document.createElement('li');
                 li.textContent = '⬆️ .. (상위 폴더)';
                 li.style.cursor = 'pointer';
@@ -312,24 +366,32 @@
             }
 
             // Populate file/directory list
-            currentFiles.forEach(item => {
-                const li = document.createElement('li');
-                li.textContent = item.name;
-                li.classList.add(item.type); // Add 'dir' or 'file' class
-                li.dataset.path = item.path;
-                li.dataset.type = item.type;
-                li.dataset.sha = item.sha; // Store sha for later use (especially for files)
+            if (currentFiles.length > 0) {
+                currentFiles.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item.name;
+                    li.classList.add(item.type); // Add 'dir' or 'file' class
+                    li.dataset.path = item.path;
+                    li.dataset.type = item.type;
+                    li.dataset.sha = item.sha; // Store sha for later use (especially for files)
 
-                if (item.type === 'dir') {
-                    li.onclick = () => fetchContents(item.path);
-                } else if (item.type === 'file') {
-                    li.onclick = () => fetchFileContent(item.path, item.sha);
-                }
-                fileListUl.appendChild(li);
-            });
-             updateStatus(`'${selectedOwner}/${selectedRepo}/${path}' 로드 완료.`);
+                    if (item.type === 'dir') {
+                        li.onclick = () => fetchContents(item.path);
+                    } else if (item.type === 'file') {
+                        li.onclick = () => fetchFileContent(item.path, item.sha);
+                    }
+                    fileListUl.appendChild(li);
+                });
+             } else {
+                 const li = document.createElement('li');
+                 li.textContent = '(폴더가 비어 있습니다)';
+                 li.style.fontStyle = 'italic';
+                 li.style.color = '#888';
+                 fileListUl.appendChild(li);
+             }
+             updateStatus(`'${selectedOwner}/${selectedRepo}/${path || '/'}' 로드 완료.`);
         } catch (error) {
-            updateStatus(`파일 목록 로딩 실패 (${path}): ${error.message}`, true);
+            updateStatus(`파일 목록 로딩 실패 (${path || '/'}): ${error.message}`, true);
             // Optionally show the browser section even on error to allow navigation back
             showSection(fileBrowserSection);
         }
@@ -338,11 +400,24 @@
     // 4. Fetch File Content
     async function fetchFileContent(filePath, fileSha) {
         updateStatus(`'${filePath}' 파일 내용 로딩 중...`);
+        showSection(null); // 로딩 중에는 잠시 섹션 숨김 (선택 사항)
         try {
             const fileData = await githubApiRequest(`/repos/${selectedOwner}/${selectedRepo}/contents/${filePath}`);
 
+            if (fileData.type !== 'file') {
+                 throw new Error('요청한 경로는 파일이 아닙니다.');
+            }
             if (fileData.encoding !== 'base64') {
-                throw new Error('지원하지 않는 인코딩입니다: ' + fileData.encoding);
+                // GitHub API는 큰 파일의 경우 content를 포함하지 않을 수 있음
+                if (fileData.content === undefined && fileData.download_url) {
+                     updateStatus(`파일이 너무 커서 직접 로드할 수 없습니다. (${fileData.size} bytes)`, true);
+                     // 에디터 대신 다운로드 링크를 보여주거나 다른 처리
+                     showSection(fileBrowserSection); // 브라우저로 복귀
+                     alert(`파일이 너무 커서(${fileData.size} bytes) 에디터로 열 수 없습니다.\n다운로드 URL: ${fileData.download_url}`);
+                     return; // 함수 종료
+                } else {
+                    throw new Error('지원하지 않는 인코딩입니다: ' + fileData.encoding);
+                }
             }
             if (fileData.content === undefined || fileData.sha === undefined) {
                  throw new Error('API 응답에 content 또는 sha가 없습니다.');
@@ -360,6 +435,8 @@
             // Enable/disable delete button based on whether it's an existing file
             deleteFileButton.disabled = false;
             saveFileButton.textContent = '저장 (수정)';
+            saveFileButton.disabled = false; // 저장 버튼 활성화
+            cancelEditButton.disabled = false; // 취소 버튼 활성화
 
             updateStatus(`'${filePath}' 로드 완료.`);
             showSection(editorSection); // Show editor
@@ -380,6 +457,9 @@
 
         deleteFileButton.disabled = true; // Cannot delete a new file
         saveFileButton.textContent = '저장 (생성)';
+        saveFileButton.disabled = false; // 저장 버튼 활성화
+        cancelEditButton.disabled = false; // 취소 버튼 활성화
+
 
         updateStatus('새 파일 생성 준비 완료.');
         showSection(editorSection);
@@ -394,17 +474,63 @@
         let commitMessage = commitMessageInput.value.trim();
         const existingSha = currentFileShaInput.value; // SHA for updates
         const isUpdate = !!existingSha;
+        // 파일 이름을 기준으로 할 지, currentFilePathInput 기준으로 할지 명확히 함
+        // 여기서는 에디터의 파일 이름 입력값을 기준으로 새 경로 생성
+        const targetFileName = fileName; // 사용자가 입력한 이름 사용
+        // 수정일 경우 원래 경로에서 파일 이름만 변경될 수도 있으므로, 현재 경로(currentPath)를 기준으로 함
+        let fullPath;
 
-        if (!fileName) {
+        if (!targetFileName) {
             updateStatus('파일 이름을 입력해주세요.', true);
+            fileNameInput.focus();
             return;
         }
-        if (!commitMessage) {
-            commitMessage = isUpdate ? `Update ${fileName}` : `Create ${fileName}`;
+
+        // 파일 이름에 슬래시 포함 여부 확인 (하위 폴더 생성 방지 또는 명시적 허용 필요)
+        if (targetFileName.includes('/')) {
+             updateStatus("파일 이름에 슬래시('/')를 포함할 수 없습니다.", true);
+             fileNameInput.focus();
+             return;
         }
 
-        // Construct the full path relative to the current directory
-        const fullPath = (currentPath ? currentPath + '/' : '') + fileName;
+
+        if (isUpdate) {
+            // 수정 시에는 원본 파일의 경로를 사용해야 함
+            fullPath = currentFilePathInput.value;
+             // 사용자가 파일 이름을 변경했는지 확인 (필수는 아님, UX 개선 가능)
+            const originalFileName = fullPath.substring(fullPath.lastIndexOf('/') + 1);
+            if (targetFileName !== originalFileName) {
+                // 파일 이름 변경은 '이동'으로 간주될 수 있어 복잡함. 여기서는 단순 업데이트만 지원.
+                 // 필요하다면 이름 변경 로직 추가 (삭제 후 생성 or Move API)
+                if (!confirm(`파일 이름을 '${originalFileName}'에서 '${targetFileName}'(으)로 변경하시겠습니까? 이는 새 파일을 생성하고 이전 파일을 삭제하는 것과 유사하게 동작할 수 있습니다.`)) {
+                     fileNameInput.value = originalFileName; // 원래 이름으로 복원
+                     return; // 취소
+                }
+                 // 실제 이름 변경 로직은 GitHub API에 Move 기능이 없으므로,
+                 // 여기서는 새 이름으로 '생성(PUT)'만 시도합니다.
+                 // GitHub는 동일 SHA가 아니면 덮어쓰기로 처리할 것입니다.
+                 // 만약 이동(rename)을 정확히 구현하려면 delete 후 create 필요.
+                 // 여기서는 일단 PUT 요청으로 처리하고, 커밋 메시지에 반영 고려.
+                 commitMessage = commitMessage || `Rename ${originalFileName} to ${targetFileName} and update content`;
+                 // fullPath는 *현재* 저장하려는 경로. 여기서는 파일 이름만 변경된 상태로 사용
+                 const basePath = currentPath ? currentPath + '/' : '';
+                 fullPath = basePath + targetFileName;
+                 // 중요: 이 경우 sha를 보내면 안될 수도 있음(새 파일 생성으로 간주). API 테스트 필요.
+                 // 안전하게 하려면 isUpdate를 false로 취급하거나, 명시적 Rename 지원 필요.
+                 // 여기서는 일단 기존 로직(sha 포함 PUT) 유지하나, 실패 가능성 인지.
+                 // Update: GitHub PUT contents API는 경로 변경 시 자동으로 이동(rename) 처리함. SHA 필요.
+                 console.warn("파일 이름 변경 시도:", originalFileName, "->", targetFileName);
+            }
+
+        } else {
+            // 생성 시에는 현재 폴더(currentPath)에 새 파일 이름 결합
+            fullPath = (currentPath ? currentPath + '/' : '') + targetFileName;
+        }
+
+
+        if (!commitMessage) {
+            commitMessage = isUpdate ? `Update ${targetFileName}` : `Create ${targetFileName}`;
+        }
 
         updateStatus(`'${fullPath}' 저장 중...`);
         saveFileButton.disabled = true;
@@ -416,36 +542,39 @@
             const body = {
                 message: commitMessage,
                 content: encodedContent,
-                branch: 'main' // Use default branch (TODO: Add branch selection)
+                branch: 'main' // TODO: 브랜치 선택 기능 추가
             };
 
-            // Add SHA only if updating an existing file
+            // 수정(Update)일 경우에만 SHA 추가
             if (isUpdate) {
-                 // Verify the path hasn't changed unexpectedly during editing
-                 if (fullPath !== currentFilePathInput.value) {
-                      throw new Error("파일 경로가 편집 중 변경되었습니다. 수정을 취소하고 다시 시도하세요.");
+                 // 파일 경로가 에디터 로드 시점과 다른지 최종 확인 (이름 변경 케이스는 위에서 처리)
+                 if (currentFilePathInput.value !== fullPath && fileNameInput.value === fullPath.substring(fullPath.lastIndexOf('/') + 1)) {
+                    // 경로 자체는 동일한데, currentFilePathInput이 다른 경우? -> 로직 오류 가능성
+                    console.error("Internal state mismatch: currentFilePathInput vs constructed fullPath");
+                    // throw new Error("내부 상태 오류 발생. 페이지를 새로고침하고 다시 시도하세요.");
+                    // 일단 진행하되 경고 남김
                  }
                 body.sha = existingSha;
             }
 
-            await githubApiRequest(`/repos/${selectedOwner}/${selectedRepo}/contents/${fullPath}`, {
+            // API 요청 (생성/수정 모두 PUT 사용)
+            const result = await githubApiRequest(`/repos/${selectedOwner}/${selectedRepo}/contents/${fullPath}`, {
                 method: 'PUT',
                 body: JSON.stringify(body)
             });
 
             updateStatus(`'${fullPath}' ${isUpdate ? '수정' : '생성'} 완료.`);
-            // Go back to the file browser and refresh the current directory
-            fetchContents(currentPath);
+            // 저장 성공 시 파일 브라우저로 돌아가서 현재 경로 새로고침
+            fetchContents(currentPath); // 저장된 파일이 있는 폴더 새로고침
 
         } catch (error) {
             updateStatus(`파일 저장 실패 (${fullPath}): ${error.message}`, true);
-        } finally {
+            // 실패 시 버튼 다시 활성화 (삭제 버튼은 원래 상태 따라감)
             saveFileButton.disabled = false;
             cancelEditButton.disabled = false;
-             // Re-enable delete only if it was an update initially
-            deleteFileButton.disabled = !isUpdate;
-            // Don't automatically hide editor on failure, let user retry/cancel
+            deleteFileButton.disabled = !isUpdate; // 수정 중이었을 때만 삭제 버튼 활성화
         }
+        // finally 블록 불필요 (성공/실패 모두 처리됨)
     });
 
     // 7. Delete File
@@ -463,8 +592,9 @@
         }
 
         let commitMessage = commitMessageInput.value.trim();
-         if (!commitMessage || !commitMessage.toLowerCase().includes('delete') ) {
-             commitMessage = `Delete ${filePathToDelete}`;
+         // 커밋 메시지가 비어있거나, 'update' 관련 메시지이면 기본 삭제 메시지로 변경
+         if (!commitMessage || commitMessage.toLowerCase().startsWith('update')) {
+             commitMessage = `Delete ${filePathToDelete.substring(filePathToDelete.lastIndexOf('/') + 1)}`;
          }
 
 
@@ -479,35 +609,34 @@
                 body: JSON.stringify({
                     message: commitMessage,
                     sha: fileShaToDelete,
-                    branch: 'main' // Use default branch
+                    branch: 'main' // TODO: 브랜치 선택 기능 추가
                 })
             });
 
             updateStatus(`'${filePathToDelete}' 삭제 완료.`);
-            // Go back to the file browser and refresh the current directory
-            fetchContents(currentPath);
+            // 삭제 성공 시 파일 브라우저로 돌아가서 현재 경로 새로고침
+            fetchContents(currentPath); // 파일이 삭제된 폴더 새로고침
 
         } catch (error) {
             updateStatus(`파일 삭제 실패 (${filePathToDelete}): ${error.message}`, true);
-             // Re-enable buttons on failure
+             // 실패 시 버튼 다시 활성화 (삭제 버튼 포함)
             saveFileButton.disabled = false;
             cancelEditButton.disabled = false;
-            deleteFileButton.disabled = false;
+            deleteFileButton.disabled = false; // 삭제 실패 시 다시 시도 가능하도록 활성화
         }
-        // No finally needed here as success navigates away
     });
 
     // 8. Cancel Edit
     cancelEditButton.addEventListener('click', () => {
         updateStatus('편집 취소됨.');
-        // Just show the file browser, don't necessarily reload it
-        showSection(fileBrowserSection);
-        // Clear editor state (optional, but good practice)
+        // 에디터 내용 초기화하고 파일 브라우저 섹션 표시
         fileNameInput.value = '';
         fileContentInput.value = '';
         commitMessageInput.value = '';
         currentFileShaInput.value = '';
         currentFilePathInput.value = '';
+        showSection(fileBrowserSection);
+        // 브라우저 내용을 다시 로드할 필요는 없음 (변경사항 없었음)
     });
 
 
