@@ -5,24 +5,10 @@
       <li>
         <a href="{{ .RelPermalink }}">{{ .Title }}</a>
         <p><small>Lastmod: {{ .Lastmod.Format "2006-01-02 15:04:05" }}</small></p>
-        <p>ㅇ란ㅇ러ㅏㅣㄷ저라ㅣㄴㅇㄹㄴㅇㄹ</p>
         <p>{{ .Summary }}</p>
       </li>
     {{ end }}
   </ul>
 
-  <!-- 페이지네이션 -->
-  <div class="pagination">
-    {{ if .Paginator.HasPrev }}
-      <a href="{{ .Paginator.Prev.URL }}">«</a>
-    {{ end }}
 
-    {{ range .Paginator.Pagers }}
-      <a href="{{ .URL }}">{{ .PageNumber }}</a>
-    {{ end }}
-
-    {{ if .Paginator.HasNext }}
-      <a href="{{ .Paginator.Next.URL }}">»</a>
-    {{ end }}
-  </div>
 {{ end }}
