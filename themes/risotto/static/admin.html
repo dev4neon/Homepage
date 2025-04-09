@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub 파일 에디터 (PAT + Hugo)</title>
+    <title>GitHub 파일 에디터 (Octokit + Hugo)</title>
     <style>
         body { font-family: sans-serif; line-height: 1.6; padding: 20px; background-color: #f4f4f4; color: #333; }
         .container { max-width: 900px; margin: 20px auto; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -68,11 +68,11 @@
 <body>
 
 <div class="container">
-    <h1>GitHub 파일 에디터 (PAT + Hugo)</h1>
+    <h1>GitHub 파일 에디터 (Octokit + Hugo)</h1>
 
     <!-- 1. Login Section -->
     <div id="loginSection" class="section">
-        <h2>1. GitHub 로그인</h2>
+        <h2>1. GitHub 로그인 (Octokit 사용)</h2>
         <div class="error">
             <strong>경고:</strong> Personal Access Token (PAT)을 브라우저에 입력하는 것은 보안상 위험할 수 있습니다. 반드시 신뢰할 수 있는 환경에서 개인적인 용도로만 사용하고, 토큰이 외부에 노출되지 않도록 각별히 주의하세요. 사용 후에는 브라우저를 완전히 종료하는 것이 좋습니다. 'repo' 권한이 필요합니다.
         </div>
@@ -153,9 +153,13 @@
 
 </div>
 
-<script>
-    const GITHUB_API_BASE = 'https://api.github.com';
-    let githubToken = null;
+<script type="module">
+    // Import Octokit
+    import { Octokit } from "https://esm.sh/octokit";
+
+    // --- Global Variables ---
+    let octokit = null; // Initialize Octokit instance here
+    let githubToken = null; // Keep token for reference if needed, but octokit instance is primary
     let selectedOwner = null;
     let selectedRepo = null;
     let currentPath = ''; // 현재 탐색 중인 경로
@@ -215,85 +219,7 @@
         }
     }
 
-    async function githubApiRequest(endpoint, options = {}) {
-        if (!githubToken) {
-            throw new Error('GitHub PAT가 설정되지 않았습니다.');
-        }
-
-        const url = endpoint.startsWith('http') ? endpoint : `${GITHUB_API_BASE}${endpoint}`;
-        const headers = {
-            'Authorization': `Bearer ${githubToken}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'X-GitHub-Api-Version': '2022-11-28', // Specify API version
-            ...options.headers,
-        };
-
-        // Automatically add Content-Type for relevant methods if body exists
-        if (options.method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method.toUpperCase()) && options.body) {
-            headers['Content-Type'] = headers['Content-Type'] || 'application/json'; // Allow overriding Content-Type if needed
-        }
-
-        updateStatus('GitHub API 요청 중...');
-        try {
-            const response = await fetch(url, { ...options, headers });
-            const responseStatus = response.status;
-            let responseData = null;
-
-            // Handle 'No Content' response (common for DELETE, sometimes PUT)
-            if (responseStatus === 204 || response.headers.get('Content-Length') === '0') {
-                 updateStatus('GitHub API 요청 성공 (내용 없음).');
-                 return null;
-            }
-            // Try to parse JSON, handle potential errors
-            try {
-                responseData = await response.json();
-            } catch (e) {
-                 if (response.ok) {
-                      console.warn(`API 응답 JSON 파싱 실패 (상태: ${responseStatus}), 하지만 응답은 OK. 응답 텍스트 확인:`, await response.text());
-                      throw new Error(`API 성공 응답(${responseStatus})을 받았지만 JSON 파싱에 실패했습니다.`);
-                 } else {
-                      responseData = { message: response.statusText || '알 수 없는 오류 (JSON 파싱 불가)' };
-                 }
-            }
-
-            // Check if the response was successful
-            if (!response.ok) {
-                const errorMessage = responseData?.message || '알 수 없는 오류';
-                console.error('GitHub API Error Response:', responseData); // Log full error response
-                let userFriendlyMessage = `GitHub API 오류 (${responseStatus}): ${errorMessage}`;
-                if (responseStatus === 401) {
-                     userFriendlyMessage = `GitHub API 인증 오류 (${responseStatus}): PAT가 유효하지 않거나 필요한 권한(repo)이 없습니다.`;
-                } else if (responseStatus === 403) {
-                     userFriendlyMessage = `GitHub API 권한 오류 (${responseStatus}): 요청이 거부되었습니다. API 속도 제한, 권한 부족 또는 기타 정책 위반일 수 있습니다. (${errorMessage})`;
-                } else if (responseStatus === 404) {
-                     userFriendlyMessage = `GitHub API 리소스 없음 (${responseStatus}): 요청한 경로 또는 파일을 찾을 수 없습니다. (${errorMessage})`;
-                 } else if (responseStatus === 409) {
-                      userFriendlyMessage = `GitHub API 충돌 (${responseStatus}): 브랜치가 최신 상태가 아니거나 다른 변경사항과 충돌할 수 있습니다. (${errorMessage})`;
-                 } else if (responseStatus === 422) {
-                     userFriendlyMessage = `GitHub API 처리 불가 (${responseStatus}): 요청 데이터 형식이 잘못되었거나 유효성 검사에 실패했습니다. (${errorMessage})`;
-                     if (responseData?.errors) {
-                          userFriendlyMessage += ` 세부 정보: ${responseData.errors.map(e => `${e.resource} ${e.field}: ${e.code}`).join(', ')}`;
-                     }
-                 }
-                throw new Error(userFriendlyMessage);
-            }
-
-            updateStatus('GitHub API 요청 성공.');
-            return responseData;
-
-        } catch (error) {
-            updateStatus(`오류: ${error.message}`, true);
-            if (error.message.includes('인증 오류') || error.message.includes('401')) {
-                patInput.value = '';
-                patInput.disabled = false;
-                loginButton.disabled = false;
-                showSection(loginSection);
-            }
-            throw error;
-        }
-    }
-
-    // Base64 인코딩/디코딩 (UTF-8 지원)
+    // Base64 인코딩/디코딩 (UTF-8 지원) - Kept as Octokit requires/returns Base64
     function b64EncodeUnicode(str) {
         try {
             return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
@@ -314,6 +240,7 @@
                  decoded_string = new TextDecoder().decode(bytes);
                  return decoded_string;
              } else {
+                 // Fallback for older environments
                  decoded_string = decodeURIComponent(atob(str).split('').map(function(c) {
                      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
                  }).join(''));
@@ -322,28 +249,29 @@
         } catch (e) {
              console.error("Base64/UTF-8 디코딩 실패:", e);
              updateStatus('Base64 또는 UTF-8 디코딩 중 오류 발생. 파일 내용이 손상되었을 수 있습니다.', true);
+             // Try simple atob as a last resort, might work for non-unicode
              try {
                  return atob(str);
              } catch (atobError) {
+                  console.error("atob fallback 실패:", atobError);
                   return "[디코딩 완전 실패]";
              }
         }
     }
 
-    // --- Hugo Front Matter Parsing/Formatting ---
+    // --- Hugo Front Matter Parsing/Formatting --- (No changes needed here)
     function parseFrontMatter(content) {
         const fm = {
             tags: [],
             categories: [],
             body: content
-            // toc, title, author, date, description are intentionally left undefined initially
         };
         const fmRegex = /^\+\+\+\s*([\s\S]*?)\s*\+\+\+([\s\S]*)/;
         const match = content.match(fmRegex);
 
         if (match && match[1] && match[2] !== undefined) {
             const frontMatterBlock = match[1].trim();
-            fm.body = match[2].trimStart();
+            fm.body = match[2].trimStart(); // Keep leading whitespace for body if user intended
 
             const lines = frontMatterBlock.split('\n');
             let currentKey = null;
@@ -367,6 +295,7 @@
                                         .map(item => item.trim())
                                         .filter(item => item && !item.startsWith('#'))
                                         .map(item => {
+                                             // Remove quotes carefully
                                              if (item.startsWith('"') && item.endsWith('"')) return item.substring(1, item.length - 1).replace(/\\"/g, '"');
                                              if (item.startsWith("'") && item.endsWith("'")) return item.substring(1, item.length - 1).replace(/\\'/g, "'");
                                              return item;
@@ -391,7 +320,7 @@
                     }
                 } else {
                     if (!trimmedLine || trimmedLine.startsWith('#')) {
-                        continue;
+                        continue; // Skip empty lines and comments
                     }
 
                     const eqIndex = trimmedLine.indexOf('=');
@@ -399,16 +328,18 @@
                         const key = trimmedLine.substring(0, eqIndex).trim();
                         let valuePart = trimmedLine.substring(eqIndex + 1).trim();
 
+                        // Handle arrays (potentially multiline)
                         if ((key === 'tags' || key === 'categories') && valuePart.startsWith('[')) {
-                            if (valuePart.endsWith(']')) {
+                             if (valuePart.endsWith(']')) { // Single line array
                                 try {
                                     let arrayString = valuePart.substring(1, valuePart.length - 1).trim();
                                     let values = [];
                                     if (arrayString) {
                                         values = arrayString.split(',')
                                             .map(item => item.trim())
-                                            .filter(item => item)
+                                            .filter(item => item) // Filter out empty strings from trailing commas etc.
                                             .map(item => {
+                                                // Remove quotes carefully
                                                 if (item.startsWith('"') && item.endsWith('"')) return item.substring(1, item.length - 1).replace(/\\"/g, '"');
                                                 if (item.startsWith("'") && item.endsWith("'")) return item.substring(1, item.length - 1).replace(/\\'/g, "'");
                                                 return item;
@@ -418,13 +349,14 @@
                                 } catch(e) {
                                     console.error(`Error parsing single-line array for key ${key}:`, valuePart, e);
                                     updateStatus(`Front matter 배열 구문 분석 중 오류 발생 (${key})`, true);
-                                    fm[key] = [];
+                                    fm[key] = []; // Default to empty on error
                                 }
-                            } else {
+                            } else { // Start of a multiline array
                                 currentKey = key;
                                 accumulatingArrayContent = valuePart;
+                                // Check if it somehow closes on the same line despite not ending with ']' initially (e.g., spaces after bracket)
                                 if (accumulatingArrayContent.includes(']')) {
-                                    try {
+                                     try {
                                         const startIndex = accumulatingArrayContent.indexOf('[');
                                         const endIndex = accumulatingArrayContent.lastIndexOf(']');
                                         if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
@@ -441,19 +373,20 @@
                                             }
                                             fm[key] = values;
                                         } else { throw new Error("Brackets not found correctly."); }
-                                    } catch (e) {
+                                     } catch (e) {
                                          console.error(`Error parsing potential single-line array disguised as multi-line for key ${key}:`, accumulatingArrayContent, e);
                                          updateStatus(`Front matter 배열 구문 분석 오류 (${key}): 단일 라인 처리 실패`, true);
                                          fm[key] = [];
-                                    } finally {
+                                     } finally {
                                         accumulatingArrayContent = null;
                                         currentKey = null;
-                                    }
+                                     }
                                 }
                             }
-                        } else {
+                        } else { // Handle simple key-value pairs
                             try {
                                 let parsedValue = valuePart;
+                                // Remove surrounding quotes (handle escaped quotes within)
                                 if (parsedValue.startsWith('"') && parsedValue.endsWith('"')) {
                                     parsedValue = parsedValue.substring(1, parsedValue.length - 1).replace(/\\"/g, '"');
                                 } else if (parsedValue.startsWith("'") && parsedValue.endsWith("'")) {
@@ -484,15 +417,19 @@
                                  updateStatus(`Front matter 구문 분석 중 오류 발생: ${line}`, true);
                             }
                         }
+                    } else {
+                        // Line does not contain '=', might be part of a multiline string (not handled here) or invalid TOML
+                        console.warn(`Invalid front matter line (no '=' found, not inside array): "${trimmedLine}"`);
                     }
                 }
             } // End for loop
 
+            // Handle case where file ends mid-array
             if (accumulatingArrayContent !== null) {
                 console.error(`Front matter parsing ended while still inside an unclosed array for key: ${currentKey}`);
                 updateStatus(`Front matter 오류: ${currentKey} 배열이 닫히지 않았습니다. 해당 필드는 비어있을 수 있습니다.`, true);
                 if (currentKey && (currentKey === 'tags' || currentKey === 'categories')) {
-                     fm[currentKey] = [];
+                     fm[currentKey] = []; // Default to empty
                 }
             }
         } // End if (match)
@@ -502,20 +439,19 @@
 
     function formatFrontMatter(fmData) {
         let fmString = '+++\n';
-        const formatTomlString = (str) => `"${String(str).replace(/"/g, '\\"')}"`;
+        const formatTomlString = (str) => `"${String(str).replace(/"/g, '\\"')}"`; // Ensure proper escaping
         const formatTomlArray = (arr) => `[${arr.map(formatTomlString).join(', ')}]`;
 
         if (fmData.title) fmString += `title = ${formatTomlString(fmData.title)}\n`;
-        if (fmData.date) fmString += `date = ${formatTomlString(fmData.date)}\n`; // TOML dates are often strings
+        if (fmData.date) fmString += `date = ${formatTomlString(fmData.date)}\n`; // TOML dates are typically strings
         if (fmData.author) fmString += `author = ${formatTomlString(fmData.author)}\n`;
         if (fmData.description) fmString += `description = ${formatTomlString(fmData.description)}\n`;
         if (fmData.categories && fmData.categories.length > 0) fmString += `categories = ${formatTomlArray(fmData.categories)}\n`;
         if (fmData.tags && fmData.tags.length > 0) fmString += `tags = ${formatTomlArray(fmData.tags)}\n`;
 
-        // Always add toc based on the boolean value passed in fmData
-        // (The save function determines this value from the checkbox)
-        if (fmData.hasOwnProperty('toc')) { // Check if the property exists
-             fmString += `toc = ${fmData.toc}\n`; // Add 'toc = true' or 'toc = false'
+        // Add toc = true or toc = false based on the boolean value
+        if (fmData.hasOwnProperty('toc')) {
+             fmString += `toc = ${fmData.toc}\n`; // Directly output true or false
         }
         // Add other custom front matter fields here if needed
 
@@ -523,7 +459,8 @@
         return fmString;
     }
 
-    // --- NEW: Hugo Filename Generation ---
+
+    // --- Hugo Filename Generation --- (No changes needed)
     function generateHugoFilename(title) {
         if (!title || !title.trim()) {
             return 'untitled.md';
@@ -531,16 +468,16 @@
         const cleanedTitle = title
             .trim()
             .toLowerCase()
-            // Remove specific characters: / \ : ? * " < > | ; # $ { } , + = [ ] .
-            .replace(/[\\\/:\?\"\*<>\|;#\${},\+=~`!@%^&()\-\[\]\.]/g, '') // Added more chars potentially problematic in filenames/URLs including dot
+            // Remove specific characters: / \ : ? * " < > | ; # $ { } , + = [ ] . ~ ` ! @ % ^ & ( )
+            .replace(/[\\\/:\?\"\*<>\|;#\${},\+=~`!@%^&()\-\[\]\.]/g, '')
             .replace(/\s+/g, '-') // Replace spaces with hyphens
             .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
             .replace(/^-+|-+$/g, ''); // Trim leading/trailing hyphens
 
-        return (cleanedTitle || 'untitled') + '.md'; // Ensure not empty and add extension
+        return (cleanedTitle || 'untitled') + '.md';
     }
 
-    // --- NEW: Commit Message Generation ---
+    // --- Commit Message Generation --- (No changes needed)
     function updateCommitMessage() {
         const filename = fileNameInput.value.trim();
         const isUpdate = !!currentFileShaInput.value;
@@ -552,8 +489,7 @@
         }
     }
 
-
-    // 경로 Breadcrumb 생성
+    // 경로 Breadcrumb 생성 (No changes needed)
     function updateBreadcrumb() {
         currentPathBreadcrumb.innerHTML = ''; // Clear existing
         const rootLink = document.createElement('a');
@@ -579,9 +515,46 @@
         });
     }
 
+    // Helper to add the '..' (Parent Directory) link (No changes needed)
+    function addParentDirectoryLink(currentPath) {
+         const parentPath = currentPath.includes('/') ? currentPath.substring(0, currentPath.lastIndexOf('/')) : '';
+         const li = document.createElement('li');
+         li.innerHTML = '<strong>⬆️ .. (상위 폴더)</strong>';
+         li.style.cursor = 'pointer';
+         li.title = `상위 폴더로 이동: /${parentPath}`;
+         li.onclick = () => fetchContents(parentPath);
+         if (fileListUl.firstChild) {
+             fileListUl.insertBefore(li, fileListUl.firstChild);
+         } else {
+             fileListUl.appendChild(li);
+         }
+    }
+
+    // Helper function to clear editor fields and state (No changes needed)
+     function clearEditorFields() {
+        fileNameInput.value = '';
+        fmTitleInput.value = '';
+        fmAuthorInput.value = '';
+        fmDateInput.value = '';
+        fmDescriptionInput.value = '';
+        fmTagsInput.value = '';
+        fmCategoriesInput.value = '';
+        fmTocCheckbox.checked = false;
+        fileContentInput.value = '';
+        commitMessageInput.value = '';
+        commitMessageInput.placeholder = '자동 생성 또는 직접 입력';
+        currentFileShaInput.value = '';
+        currentFilePathInput.value = '';
+
+        saveFileButton.disabled = true;
+        deleteFileButton.disabled = true;
+        cancelEditButton.disabled = true;
+    }
+
+
     // --- Event Handlers ---
 
-    // 1. Login
+    // 1. Login (*** MODIFIED ***)
     loginButton.addEventListener('click', async () => {
         githubToken = patInput.value.trim();
         if (!githubToken) {
@@ -589,17 +562,33 @@
             patInput.focus();
             return;
         }
+
+        // *** Initialize Octokit ***
+        try {
+            octokit = new Octokit({ auth: githubToken });
+            updateStatus('Octokit 인스턴스 생성 완료. 사용자 정보 확인 중...');
+        } catch (err) {
+            updateStatus(`Octokit 초기화 오류: ${err.message}`, true);
+            return;
+        }
+
         patInput.disabled = true;
         loginButton.disabled = true;
         loadRepoButton.disabled = true;
         updateStatus('저장소 목록 로딩 중...');
+
         try {
-            // Fetch user info first to validate PAT and get login name
-            const user = await githubApiRequest('/user');
+            // Fetch user info first to validate PAT
+            const { data: user } = await octokit.rest.users.getAuthenticated();
             console.log("Authenticated user:", user.login); // Good for debugging
 
-            // Fetch repos
-            const repos = await githubApiRequest('/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member');
+            // Fetch repos using octokit
+            const { data: repos } = await octokit.rest.repos.listForAuthenticatedUser({
+                per_page: 100,
+                sort: 'updated',
+                affiliation: 'owner,collaborator,organization_member'
+            });
+
             repoSelect.innerHTML = '<option value="">-- 저장소 선택 --</option>';
 
             if (repos && repos.length > 0) {
@@ -617,22 +606,31 @@
                 updateStatus('접근 가능한 저장소가 없거나 로드에 실패했습니다. PAT 권한(repo)을 확인하세요.', true);
                 patInput.disabled = false;
                 loginButton.disabled = false;
+                octokit = null; // Reset octokit instance on failure
                 showSection(loginSection);
             }
         } catch (error) {
+             console.error("Login/Repo Fetch Error:", error);
+             let errorMsg = `저장소 목록 로딩 실패: ${error.message}`;
+             if (error.status === 401) {
+                 errorMsg = `GitHub API 인증 오류 (${error.status}): PAT가 유효하지 않거나 필요한 권한(repo)이 없습니다.`;
+             } else if (error.status === 403) {
+                 errorMsg = `GitHub API 권한 오류 (${error.status}): API 속도 제한 또는 권한 부족. (${error.message})`;
+             }
+             updateStatus(errorMsg, true);
              patInput.disabled = false;
              loginButton.disabled = false;
+             octokit = null; // Reset octokit instance on failure
              showSection(loginSection);
-             // Error already shown by githubApiRequest
         }
     });
 
-    // 2. Repository Selection Change
+    // 2. Repository Selection Change (No changes needed)
     repoSelect.addEventListener('change', () => {
         loadRepoButton.disabled = repoSelect.value === '';
     });
 
-    // 3. Load Repository Button Click
+    // 3. Load Repository Button Click (No changes needed conceptually, but uses fetchContents which is modified)
     loadRepoButton.addEventListener('click', () => {
         const selectedRepoFullName = repoSelect.value;
         if (!selectedRepoFullName) return;
@@ -641,130 +639,150 @@
         currentRepoSpan.textContent = selectedRepoFullName;
         updateStatus(`'${selectedRepoFullName}' 저장소 로딩 중...`);
         showSection(fileBrowserSection);
-        fetchContents('');
+        fetchContents(''); // This function now uses Octokit
     });
 
-    // 4. Fetch Repository Contents (Files/Dirs)
+    // 4. Fetch Repository Contents (Files/Dirs) (*** MODIFIED ***)
     async function fetchContents(path) {
+        if (!octokit || !selectedOwner || !selectedRepo) {
+             updateStatus("오류: Octokit이 초기화되지 않았거나 저장소가 선택되지 않았습니다.", true);
+             return;
+        }
         currentPath = path;
         updateBreadcrumb();
         fileListUl.innerHTML = '<li><em><center>로딩 중...</center></em></li>';
         showSection(fileBrowserSection);
-        editorSection.classList.add('hidden');
+        editorSection.classList.add('hidden'); // Hide editor when browsing
         updateStatus(`'${selectedOwner}/${selectedRepo}/${path || '/'}' 로딩 중...`);
 
         try {
-            const requestPath = path ? encodeURIComponent(path).replace(/%2F/g, '/') : ''; // Keep slashes unencoded for path segments
-            const contents = await githubApiRequest(`/repos/${selectedOwner}/${selectedRepo}/contents/${requestPath}?ref=${currentBranch}`);
-
-            currentFiles = contents.sort((a, b) => {
-                if (a.type === b.type) return a.name.localeCompare(b.name, 'ko', { sensitivity: 'base' });
-                return a.type === 'dir' ? -1 : 1;
+            // Use octokit.rest.repos.getContent
+            const { data: contents } = await octokit.rest.repos.getContent({
+                owner: selectedOwner,
+                repo: selectedRepo,
+                path: path,
+                ref: currentBranch
+                // Octokit handles URL encoding for the path internally
             });
 
-            fileListUl.innerHTML = '';
+            // Ensure contents is always an array (GitHub returns an object for single file paths)
+            const contentList = Array.isArray(contents) ? contents : [contents];
 
+            // Filter out non-file/dir types (like submodules, symlinks if any) and sort
+            currentFiles = contentList
+                .filter(item => item.type === 'file' || item.type === 'dir')
+                .sort((a, b) => {
+                    if (a.type === b.type) return a.name.localeCompare(b.name, 'ko', { sensitivity: 'base' });
+                    return a.type === 'dir' ? -1 : 1; // Dirs first
+                });
+
+            fileListUl.innerHTML = ''; // Clear loading message
+
+            // Add parent directory link if not at root
             if (path !== '') {
                 addParentDirectoryLink(path);
             }
 
+            // Populate file list
             if (currentFiles.length > 0) {
                 currentFiles.forEach(item => {
                     const li = document.createElement('li');
                     li.textContent = item.name;
-                    li.classList.add(item.type);
+                    li.classList.add(item.type); // 'file' or 'dir'
                     li.dataset.path = item.path;
                     li.dataset.type = item.type;
-                    li.dataset.sha = item.sha;
+                    li.dataset.sha = item.sha; // SHA is available for both files and dirs in getContent response
 
                     if (item.type === 'dir') {
                         li.onclick = () => fetchContents(item.path);
                         li.title = `폴더 열기: ${item.path}`;
                     } else if (item.type === 'file') {
-                         // Allow editing .md files specifically, or others based on a broader regex if needed
-                         const isEditable = /\.md$/i.test(item.name); // Focus on .md for Hugo
-                        // Or a broader list: /\.(md|markdown|txt|toml|yaml|yml|json|html|htm|css|js|xml|sh|cfg|ini)$/i.test(item.name) || !item.name.includes('.');
+                        const isEditable = /\.md$/i.test(item.name); // Focus on .md for Hugo
                         if (isEditable) {
                              li.title = `파일 수정: ${item.path}`;
+                             // Pass the file SHA (blob SHA) for fetching content
                              li.onclick = () => fetchFileContent(item.path, item.sha);
                         } else {
                              li.style.cursor = 'default';
                              li.style.color = '#888';
                              li.title = `(Hugo .md 파일만 편집 지원)`;
-                             li.onclick = (e) => e.stopPropagation();
+                             li.onclick = (e) => e.stopPropagation(); // Prevent potential bubbling
                         }
-                    } else {
-                         li.style.cursor = 'default';
-                         li.style.color = '#888';
-                         li.textContent += ` (${item.type})`;
                     }
+                    // No 'else' needed as we filtered out other types
                     fileListUl.appendChild(li);
                 });
              } else if (path === '') {
-                  const li = document.createElement('li');
-                  li.textContent = '(저장소가 비어 있습니다)';
-                  li.style.fontStyle = 'italic';
-                  li.style.color = '#888';
-                  li.style.cursor = 'default';
-                  fileListUl.appendChild(li);
-             } else if (path !== '') {
-                  const li = document.createElement('li');
-                  li.textContent = '(폴더가 비어 있습니다)';
-                  li.style.fontStyle = 'italic';
-                  li.style.color = '#888';
-                  li.style.cursor = 'default';
-                  fileListUl.appendChild(li);
+                 // Root directory is empty
+                 const li = document.createElement('li');
+                 li.textContent = '(저장소가 비어 있습니다)';
+                 li.style.fontStyle = 'italic'; li.style.color = '#888'; li.style.cursor = 'default';
+                 fileListUl.appendChild(li);
+             } else {
+                 // Non-root directory is empty
+                 const li = document.createElement('li');
+                 li.textContent = '(폴더가 비어 있습니다)';
+                 li.style.fontStyle = 'italic'; li.style.color = '#888'; li.style.cursor = 'default';
+                 fileListUl.appendChild(li);
              }
 
              updateStatus(`'${selectedOwner}/${selectedRepo}/${path || '/'}' 로드 완료.`);
 
         } catch (error) {
+             console.error("Fetch Contents Error:", error);
+             let errorMsg = `폴더 내용 로드 실패: ${error.message}`;
+              if (error.status === 404) {
+                  errorMsg = `경로 '${path}'를 찾을 수 없습니다 (${error.status}).`;
+              } else if (error.status === 403) {
+                  errorMsg = `저장소 접근 권한 오류 (${error.status}).`;
+              }
+             updateStatus(errorMsg, true);
              fileListUl.innerHTML = `<li class="error" style="cursor: default; background-color: #f8d7da; color: #721c24; padding: 10px;">오류: 폴더 내용을 불러올 수 없습니다. (${error.message})</li>`;
+             // Still add parent link if possible on error
              if (path !== '') {
                  addParentDirectoryLink(path);
              }
         }
     }
 
-    // Helper to add the '..' (Parent Directory) link
-    function addParentDirectoryLink(currentPath) {
-         const parentPath = currentPath.includes('/') ? currentPath.substring(0, currentPath.lastIndexOf('/')) : '';
-         const li = document.createElement('li');
-         li.innerHTML = '<strong>⬆️ .. (상위 폴더)</strong>';
-         li.style.cursor = 'pointer';
-         li.title = `상위 폴더로 이동: /${parentPath}`;
-         li.onclick = () => fetchContents(parentPath);
-         if (fileListUl.firstChild) {
-             fileListUl.insertBefore(li, fileListUl.firstChild);
-         } else {
-             fileListUl.appendChild(li);
-         }
-    }
 
-
-    // 5. Fetch File Content for Editor
+    // 5. Fetch File Content for Editor (*** MODIFIED ***)
     async function fetchFileContent(filePath, fileSha) {
+        if (!octokit || !selectedOwner || !selectedRepo) {
+             updateStatus("오류: Octokit이 초기화되지 않았거나 저장소가 선택되지 않았습니다.", true);
+             return;
+        }
         updateStatus(`'${filePath}' 파일 내용 로딩 중...`);
         saveFileButton.disabled = true;
         deleteFileButton.disabled = true;
         cancelEditButton.disabled = true;
-        showSection(null);
+        showSection(null); // Hide sections while loading
 
         try {
-            const fileData = await githubApiRequest(`/repos/${selectedOwner}/${selectedRepo}/git/blobs/${fileSha}`);
+            // Use octokit.rest.git.getBlob using the SHA from getContent
+            const { data: blobData } = await octokit.rest.git.getBlob({
+                owner: selectedOwner,
+                repo: selectedRepo,
+                file_sha: fileSha // Use the sha passed from the file list item
+            });
 
-            if (!fileData || !fileData.sha || fileData.encoding !== 'base64' || typeof fileData.content === 'undefined') {
-                 throw new Error('API 응답 형식이 잘못되었습니다 (Blob). Content 또는 SHA 누락.');
+            // Basic validation of blob data
+            if (!blobData || !blobData.sha || blobData.encoding !== 'base64' || typeof blobData.content === 'undefined') {
+                 throw new Error('API 응답 형식이 잘못되었습니다 (Blob). Content, SHA, 또는 Encoding 누락.');
             }
 
-            if (fileData.truncated) {
-                 updateStatus(`파일 내용이 너무 커서 일부만 로드되었습니다 (${filePath}). 전체 편집 불가.`, true);
-                 showSection(fileBrowserSection);
-                 alert(`파일이 너무 커서(${fileData.size} bytes) 전체 내용을 가져올 수 없습니다. 편집이 불가능합니다.`);
+            // Check for truncation (Octokit doesn't explicitly return truncated, but size is available)
+            // GitHub blob API limit is around 1MB for direct content return. Size check is a good heuristic.
+            const sizeLimit = 1 * 1024 * 1024; // 1 MB
+            if (blobData.size > sizeLimit) {
+                 updateStatus(`파일 내용이 너무 큽니다 (${blobData.size} bytes > 1MB). 편집이 제한될 수 있습니다.`, true);
+                 // Consider alternative handling or direct alert
+                 alert(`파일이 너무 커서(${blobData.size} bytes) 로드/편집이 불가능할 수 있습니다.`);
+                 showSection(fileBrowserSection); // Go back to browser
                  return;
             }
 
-            const decodedContent = b64DecodeUnicode(fileData.content);
+            const decodedContent = b64DecodeUnicode(blobData.content);
             const parsedData = parseFrontMatter(decodedContent);
 
             // Populate editor fields
@@ -778,27 +796,37 @@
             fmTocCheckbox.checked = (parsedData.toc === true);
             fileContentInput.value = parsedData.body || '';
 
-            // commitMessageInput will be set by updateCommitMessage() below
-            currentFileShaInput.value = fileData.sha;
+            // Store the actual blob SHA (which should match fileSha passed in) and full path
+            currentFileShaInput.value = blobData.sha;
             currentFilePathInput.value = filePath;
 
+            // Enable buttons for editing/deleting existing file
             deleteFileButton.disabled = false;
             saveFileButton.textContent = '저장 (수정)';
             saveFileButton.disabled = false;
             cancelEditButton.disabled = false;
 
-            updateCommitMessage(); // <-- NEW: Generate commit message for existing file
+            updateCommitMessage(); // Generate default commit message for update
 
             updateStatus(`'${filePath}' 로드 완료. 편집 가능.`);
             showSection(editorSection);
 
         } catch (error) {
-            updateStatus(`파일 내용 로딩 실패 (${filePath}): ${error.message}`, true);
-            showSection(fileBrowserSection);
+            console.error("Fetch File Content Error:", error);
+            let errorMsg = `파일 내용 로딩 실패 (${filePath}): ${error.message}`;
+             if (error.status === 404) {
+                 errorMsg = `파일 Blob (SHA: ${fileSha})을 찾을 수 없습니다 (${error.status}). 파일이 변경되었을 수 있습니다.`;
+             } else if (error.status === 403) {
+                 errorMsg = `파일 접근 권한 오류 (${error.status}).`;
+             } else if (error.status === 422) { // Potential validation error
+                 errorMsg = `잘못된 요청 (${error.status}): ${error.message}`;
+             }
+            updateStatus(errorMsg, true);
+            showSection(fileBrowserSection); // Go back to browser on error
         }
     }
 
-    // 6. Show Create New File Form
+    // 6. Show Create New File Form (Minor changes for consistency)
     createNewFileButton.addEventListener('click', () => {
         clearEditorFields(); // Clear fields first
 
@@ -812,15 +840,13 @@
         const localISOString = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${sign}${offsetHours}:${offsetMinutes}`;
         fmDateInput.value = localISOString;
 
-        // TOC default is false (handled by clearEditorFields)
-
         // Update state for new file
-        deleteFileButton.disabled = true;
+        deleteFileButton.disabled = true; // Cannot delete a new file
         saveFileButton.textContent = '저장 (생성)';
-        saveFileButton.disabled = false;
-        cancelEditButton.disabled = false;
+        saveFileButton.disabled = false; // Enable saving
+        cancelEditButton.disabled = false; // Enable cancelling
 
-        updateCommitMessage(); // <-- NEW: Generate initial (empty) commit message for new file
+        updateCommitMessage(); // Generate initial (empty) commit message
 
         updateStatus('새 파일 생성 준비 완료. Title을 입력하면 파일명과 커밋 메시지가 자동 생성됩니다.');
         showSection(editorSection);
@@ -828,29 +854,27 @@
     });
 
 
-    // 7. Save File (Handles Create or Update/Rename)
+    // 7. Save File (Handles Create or Update/Rename) (*** MODIFIED ***)
     saveFileButton.addEventListener('click', async () => {
-        let fileName = fileNameInput.value.trim(); // Use let as it might be regenerated
-        const fileBodyContent = fileContentInput.value;
+        if (!octokit || !selectedOwner || !selectedRepo) {
+             updateStatus("오류: Octokit이 초기화되지 않았거나 저장소가 선택되지 않았습니다.", true);
+             return;
+        }
+
+        let fileName = fileNameInput.value.trim();
+        const fileBodyContent = fileContentInput.value; // Keep as is
         let commitMessage = commitMessageInput.value.trim();
-        const existingSha = currentFileShaInput.value;
-        const existingFullPath = currentFilePathInput.value;
+        const existingSha = currentFileShaInput.value; // SHA of the blob being edited (if any)
+        const existingFullPath = currentFilePathInput.value; // Full path of the file being edited (if any)
         const isUpdate = !!existingSha;
 
-        // --- Input Validation ---
+        // --- Input Validation (Mostly unchanged) ---
         const titleValue = fmTitleInput.value.trim();
         if (!titleValue) {
              updateStatus("오류: Front Matter의 'Title'은 필수 항목입니다.", true);
              fmTitleInput.focus(); return;
         }
-
-        // Regenerate filename from title just before saving to ensure consistency
-        // Allows user edits but syncs if title was the last thing changed.
-        // Or, trust the fileNameInput value more? Let's trust fileNameInput, user might have specific needs.
-        // fileName = generateHugoFilename(titleValue); // Uncomment this line to ALWAYS use title for filename on save
-        // fileNameInput.value = fileName; // Update input if regenerated
-
-        if (!fileName) {
+         if (!fileName) {
             updateStatus('오류: 파일 이름을 입력해주세요 (확장자 포함). Title을 입력하면 자동 생성됩니다.', true);
             fileNameInput.focus(); return;
         }
@@ -859,8 +883,7 @@
              fileNameInput.focus(); return;
         }
          if (!fileName.toLowerCase().endsWith('.md')) {
-              updateStatus("오류: 파일 확장자는 '.md'여야 합니다. Title을 수정하면 자동으로 변경됩니다.", true);
-              // Or force it: fileName = generateHugoFilename(titleValue); fileNameInput.value = fileName;
+              updateStatus("오류: 파일 확장자는 '.md'여야 합니다.", true);
               fileNameInput.focus(); return;
          }
          if (!fmDateInput.value.trim()) {
@@ -871,50 +894,49 @@
               updateStatus("오류: 'Date' 형식이 올바르지 않습니다 (YYYY-MM-DDTHH:MM:SSZ 또는 +/-HH:MM).", true);
               fmDateInput.focus(); return;
          }
-         // Regenerate commit message if it's empty or still the default one (user might have edited filename)
+         // Regenerate commit message if empty or default
          if (!commitMessage || commitMessage === `Update ${fileName}` || commitMessage === `New ${fileName}` ) {
              updateCommitMessage(); // Ensure it's up-to-date
-             commitMessage = commitMessageInput.value.trim(); // Re-read potentially updated message
+             commitMessage = commitMessageInput.value.trim(); // Re-read
          }
          if (!commitMessage) {
-             updateStatus("오류: 커밋 메시지를 입력해주세요 (자동 생성 가능).", true);
+             updateStatus("오류: 커밋 메시지를 입력해주세요.", true);
              commitMessageInput.focus(); return;
          }
         // --- End Validation ---
 
-        // Construct Front Matter Data Object from inputs
+        // Construct Front Matter Data Object (Unchanged)
         const fmData = {
-            title: titleValue, // Use the validated title
-            author: fmAuthorInput.value.trim(),
-            date: fmDateInput.value.trim(),
+            title: titleValue, author: fmAuthorInput.value.trim(), date: fmDateInput.value.trim(),
             description: fmDescriptionInput.value.trim(),
             tags: fmTagsInput.value.split(',').map(t => t.trim()).filter(t => t),
             categories: fmCategoriesInput.value.split(',').map(c => c.trim()).filter(c => c),
             toc: fmTocCheckbox.checked
         };
 
-        let frontMatterString;
         let finalContent;
         try {
-            frontMatterString = formatFrontMatter(fmData);
-            finalContent = frontMatterString + fileBodyContent;
+            const frontMatterString = formatFrontMatter(fmData);
+            finalContent = frontMatterString + fileBodyContent; // Combine FM + Body
         } catch (formatError) {
              updateStatus(`Front Matter 생성 오류: ${formatError.message}`, true);
              return;
         }
 
         const targetBasePath = currentPath ? currentPath + '/' : '';
-        const targetFullPath = targetBasePath + fileName;
+        const targetFullPath = targetBasePath + fileName; // The path where the file should be saved
 
+        // *** Important: GitHub API Renaming ***
+        // octokit.rest.repos.createOrUpdateFileContents does NOT handle renames directly.
+        // If `targetFullPath` is different from `existingFullPath`, it will CREATE a NEW file.
+        // A true rename requires deleting the old file first. This implementation will *not* delete the old file on rename.
         const isRename = isUpdate && (targetFullPath !== existingFullPath);
         if (isRename) {
-            console.warn("파일 이름 변경 감지:", existingFullPath, "->", targetFullPath);
-            // Keep auto-generated message if it reflects the *new* name, otherwise user's custom one
+             updateStatus(`경고: 파일 이름 변경 감지 ('${existingFullPath}' -> '${targetFullPath}'). 새 파일이 생성됩니다. 이전 파일은 삭제되지 않습니다.`, false); // Inform user
+             // Adjust commit message maybe?
              if (commitMessage === `Update ${existingFullPath.substring(existingFullPath.lastIndexOf('/') + 1)}`) {
-                 commitMessageInput.value = `Update ${fileName}`; // Update commit msg to new name
-                 commitMessage = `Update ${fileName}`;
-                 // Or a more descriptive one:
-                 // commitMessage = `Rename ${existingFullPath.substring(existingFullPath.lastIndexOf('/') + 1)} to ${fileName} and update content`;
+                 commitMessageInput.value = `Create ${fileName} (renamed from ${existingFullPath.substring(existingFullPath.lastIndexOf('/') + 1)})`;
+                 commitMessage = commitMessageInput.value;
              }
         }
 
@@ -924,51 +946,65 @@
         deleteFileButton.disabled = true;
 
         try {
-            const encodedContent = b64EncodeUnicode(finalContent);
-            const requestBody = {
+            const encodedContent = b64EncodeUnicode(finalContent); // Still need to encode
+
+            // Prepare parameters for Octokit
+            const params = {
+                owner: selectedOwner,
+                repo: selectedRepo,
+                path: targetFullPath,
                 message: commitMessage,
                 content: encodedContent,
                 branch: currentBranch
             };
 
-            // Add SHA only if updating the *same* file path
+            // *** Add SHA only if updating the SAME file ***
+            // If it's a rename (isRename = true), do NOT provide SHA, as we are creating a new file.
             if (isUpdate && !isRename) {
-                requestBody.sha = existingSha;
-            }
-            // NOTE: GitHub API doesn't support direct rename via content update PUT.
-            // A rename requires a separate commit or more complex Git Data API usage.
-            // This implementation will *create* a new file at the new path and leave the old one if renamed.
-            // For simplicity, we'll proceed with this behavior. A true rename would require deleting the old file first.
-            if (isRename) {
-                 updateStatus(`경고: 파일 이름 변경은 새 파일('${targetFullPath}')을 생성합니다. 이전 파일('${existingFullPath}')은 수동으로 삭제해야 할 수 있습니다.`, false);
-                 // To properly rename, you'd ideally:
-                 // 1. DELETE the old file (using existingFullPath and existingSha)
-                 // 2. PUT (create) the new file (using targetFullPath, no sha)
-                 // This requires two API calls and careful error handling.
+                params.sha = existingSha; // Required for updating existing file at the same path
             }
 
+            // Use octokit.rest.repos.createOrUpdateFileContents
+            const { data: result } = await octokit.rest.repos.createOrUpdateFileContents(params);
 
-            const result = await githubApiRequest(`/repos/${selectedOwner}/${selectedRepo}/contents/${encodeURIComponent(targetFullPath).replace(/%2F/g, '/')}`, {
-                method: 'PUT',
-                body: JSON.stringify(requestBody)
-            });
-
-            const action = isUpdate ? (isRename ? '이름 변경으로 인한 재생성' : '수정') : '생성';
+            const action = isUpdate ? (isRename ? '이름 변경으로 인한 생성' : '수정') : '생성';
             updateStatus(`'${targetFullPath}' ${action} 완료. SHA: ${result?.content?.sha}`, false);
-            fetchContents(currentPath); // Refresh file list
+
+            // If it was a rename, the old file still exists. User needs to delete it manually.
+            // We stay in the current directory after save.
+            fetchContents(currentPath); // Refresh file list in the current directory
+            showSection(fileBrowserSection); // Go back to browser view
 
         } catch (error) {
-            updateStatus(`파일 저장 실패 (${targetFullPath}): ${error.message}`, true);
-            saveFileButton.disabled = false;
+            console.error("Save File Error:", error);
+            let errorMsg = `파일 저장 실패 (${targetFullPath}): ${error.message}`;
+            if (error.status === 409) { // Conflict (e.g., SHA mismatch, branch not up to date)
+                errorMsg = `파일 저장 충돌 (${error.status}): 파일이 서버에서 변경되었을 수 있습니다. 페이지를 새로고침하고 다시 시도하세요. (${error.message})`;
+            } else if (error.status === 422) { // Unprocessable Entity (e.g., empty commit message, bad parameters)
+                errorMsg = `잘못된 요청 데이터 (${error.status}): ${error.message}`;
+                if (error.response?.data?.errors) { // More specific errors if available
+                    errorMsg += ` 세부 정보: ${error.response.data.errors.map(e => `${e.resource} ${e.field}: ${e.code}`).join(', ')}`;
+                }
+            } else if (error.status === 404 && isUpdate && !isRename) {
+                 errorMsg = `파일 수정 실패 (${error.status}): 원본 파일(SHA: ${existingSha})을 찾을 수 없습니다. 삭제되었을 수 있습니다.`;
+            }
+            updateStatus(errorMsg, true);
+            saveFileButton.disabled = false; // Re-enable buttons on failure
             cancelEditButton.disabled = false;
-            deleteFileButton.disabled = !isUpdate; // Re-enable delete if it was an update attempt
+            // Only re-enable delete if it was an update attempt that failed
+            deleteFileButton.disabled = !(isUpdate && !isRename);
         }
     });
 
-    // 8. Delete File
+    // 8. Delete File (*** MODIFIED ***)
     deleteFileButton.addEventListener('click', async () => {
+        if (!octokit || !selectedOwner || !selectedRepo) {
+             updateStatus("오류: Octokit이 초기화되지 않았거나 저장소가 선택되지 않았습니다.", true);
+             return;
+        }
+
         const filePathToDelete = currentFilePathInput.value;
-        const fileShaToDelete = currentFileShaInput.value;
+        const fileShaToDelete = currentFileShaInput.value; // This is the blob SHA, required for deletion
         const filenameOnly = filePathToDelete.substring(filePathToDelete.lastIndexOf('/') + 1);
 
         if (!filePathToDelete || !fileShaToDelete) {
@@ -991,56 +1027,48 @@
         deleteFileButton.disabled = true;
 
         try {
-            await githubApiRequest(`/repos/${selectedOwner}/${selectedRepo}/contents/${encodeURIComponent(filePathToDelete).replace(/%2F/g, '/')}`, {
-                method: 'DELETE',
-                body: JSON.stringify({
-                    message: commitMessage,
-                    sha: fileShaToDelete,
-                    branch: currentBranch
-                })
+            // Use octokit.rest.repos.deleteFile
+            await octokit.rest.repos.deleteFile({
+                owner: selectedOwner,
+                repo: selectedRepo,
+                path: filePathToDelete,
+                message: commitMessage,
+                sha: fileShaToDelete, // SHA of the blob being deleted is required
+                branch: currentBranch
             });
 
             updateStatus(`'${filePathToDelete}' 삭제 완료.`);
             clearEditorFields();
-            showSection(fileBrowserSection);
+            showSection(fileBrowserSection); // Go back to browser
             fetchContents(currentPath); // Refresh file list
 
         } catch (error) {
-            updateStatus(`파일 삭제 실패 (${filePathToDelete}): ${error.message}`, true);
-            // Don't re-enable buttons on delete failure usually, state is uncertain
-            cancelEditButton.disabled = false; // Allow cancelling back to browser
+            console.error("Delete File Error:", error);
+            let errorMsg = `파일 삭제 실패 (${filePathToDelete}): ${error.message}`;
+             if (error.status === 404) {
+                 errorMsg = `삭제할 파일 '${filePathToDelete}' (SHA: ${fileShaToDelete})을(를) 찾을 수 없습니다 (${error.status}). 이미 삭제되었거나 경로가 잘못되었을 수 있습니다.`;
+             } else if (error.status === 409) { // Conflict (SHA mismatch)
+                 errorMsg = `파일 삭제 충돌 (${error.status}): 파일이 서버에서 변경되었을 수 있습니다. 페이지를 새로고침하고 다시 시도하세요. (${error.message})`;
+             } else if (error.status === 422) { // e.g., missing SHA
+                  errorMsg = `잘못된 삭제 요청 (${error.status}): ${error.message}`;
+             } else if (error.status === 403) {
+                  errorMsg = `파일 삭제 권한 오류 (${error.status})`;
+             }
+            updateStatus(errorMsg, true);
+            // Do not re-enable buttons generally on delete failure, state is uncertain.
+            // Maybe allow cancel to go back?
+            cancelEditButton.disabled = false;
         }
     });
 
-    // 9. Cancel Edit / Clear Editor
+    // 9. Cancel Edit / Clear Editor (No changes needed)
     cancelEditButton.addEventListener('click', () => {
         clearEditorFields();
         updateStatus('편집 작업 취소됨.');
         showSection(fileBrowserSection);
     });
 
-    // Helper function to clear editor fields and state
-    function clearEditorFields() {
-        fileNameInput.value = '';
-        fmTitleInput.value = '';
-        fmAuthorInput.value = '';
-        fmDateInput.value = '';
-        fmDescriptionInput.value = '';
-        fmTagsInput.value = '';
-        fmCategoriesInput.value = '';
-        fmTocCheckbox.checked = false; // Reset TOC checkbox to default (unchecked)
-        fileContentInput.value = '';
-        commitMessageInput.value = '';
-        commitMessageInput.placeholder = '자동 생성 또는 직접 입력';
-        currentFileShaInput.value = '';
-        currentFilePathInput.value = '';
-
-        saveFileButton.disabled = true;
-        deleteFileButton.disabled = true;
-        cancelEditButton.disabled = true;
-    }
-
-    // --- NEW: Event listeners for automatic updates ---
+    // --- Event listeners for automatic updates --- (No changes needed)
     fmTitleInput.addEventListener('input', () => {
          const generatedFilename = generateHugoFilename(fmTitleInput.value);
          fileNameInput.value = generatedFilename;
