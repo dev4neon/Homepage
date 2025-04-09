@@ -3,855 +3,683 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub 파일 관리자 (Device Flow)</title>
+    <title>GitHub 파일 에디터</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        .container {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 0;
             display: flex;
-            gap: 20px;
-            margin-top: 20px;
+            height: 100vh;
         }
+        
         .sidebar {
+            width: 250px;
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .main-content {
             flex: 1;
-            border-right: 1px solid #e1e4e8;
-            padding-right: 20px;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
         }
-        .content {
-            flex: 3;
+        
+        .login-container {
+            max-width: 500px;
+            margin: 100px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        button {
-            background-color: #2da44e;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            margin: 5px 0;
-        }
-        button:hover {
-            background-color: #2c974b;
-        }
-        button:disabled {
-            background-color: #94d3a2;
-            cursor: not-allowed;
-        }
-        button.secondary {
-            background-color: #6e7781;
-        }
-        button.secondary:hover {
-            background-color: #57606a;
-        }
-        button.danger {
-            background-color: #cf222e;
-        }
-        button.danger:hover {
-            background-color: #a40e26;
-        }
-        input, textarea, select {
-            width: 100%;
-            padding: 8px;
-            margin: 5px 0 15px;
-            border: 1px solid #d0d7de;
-            border-radius: 6px;
-            box-sizing: border-box;
-        }
-        textarea {
-            min-height: 300px;
-            font-family: monospace;
-            white-space: pre;
-            overflow-wrap: normal;
-            overflow-x: scroll;
-        }
+        
         .repo-list, .file-list {
             list-style: none;
             padding: 0;
-            margin-top: 10px;
+            margin: 10px 0;
         }
+        
         .repo-list li, .file-list li {
-            padding: 8px;
-            margin: 5px 0;
-            border: 1px solid #d0d7de;
-            border-radius: 6px;
+            padding: 8px 10px;
+            margin: 2px 0;
             cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            border-radius: 4px;
         }
+        
         .repo-list li:hover, .file-list li:hover {
-            background-color: #f6f8fa;
+            background-color: #e0e0e0;
         }
-        .file-list .actions button {
-            margin-left: 5px;
-            padding: 4px 8px;
-            font-size: 12px;
+        
+        .repo-list li.active, .file-list li.active {
+            background-color: #0366d6;
+            color: white;
         }
+        
+        .editor-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        
+        #editor {
+            width: 100%;
+            height: calc(100vh - 200px);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            resize: none;
+        }
+        
+        .toolbar {
+            display: flex;
+            padding: 10px 0;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 8px 12px;
+            background-color: #0366d6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #0255b3;
+        }
+        
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .file-metadata {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 4px;
+        }
+        
         .hidden {
             display: none;
         }
-        #login-section {
-            text-align: center;
-            margin: 30px auto;
-            padding: 20px;
-            border: 1px solid #d0d7de;
-            border-radius: 6px;
-            max-width: 600px;
-            background-color: #f6f8fa;
-        }
-        #login-instructions {
-            margin-top: 15px;
-            padding: 15px;
-            background-color: #ffffff;
-            border: 1px solid #d0d7de;
-            border-radius: 6px;
-            word-wrap: break-word;
-        }
-        #user-code {
-            font-family: monospace;
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #0969da;
-            display: block;
-            margin: 10px 0;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e1e4e8;
-        }
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .user-info img {
-            border-radius: 50%;
-        }
-        #path-nav a {
-            text-decoration: none;
-            color: #0969da;
-        }
-        #path-nav a:hover {
-            text-decoration: underline;
-        }
-        #status-message {
+        
+        .status-bar {
+            padding: 10px;
             margin-top: 10px;
-            font-style: italic;
-            color: #57606a;
+            border-radius: 4px;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
         }
     </style>
 </head>
 <body>
-
-    <!-- Login Section (Handles Device Flow) -->
-    <div id="login-section">
-        <h1>GitHub 파일 관리자</h1>
-        <p>GitHub 계정으로 로그인하여 레포지토리 파일을 관리하세요.</p>
-        <button id="login-btn">GitHub로 로그인 (Device Flow)</button>
-        <div id="login-instructions" class="hidden">
-            <p>다른 브라우저 탭이나 기기에서 다음 주소로 이동하세요:</p>
-            <p><strong id="verification-uri"></strong></p>
-            <p>그리고 다음 코드를 입력하세요:</p>
-            <span id="user-code"></span>
-            <p id="status-message">인증을 기다리는 중... 이 페이지를 닫지 마세요.</p>
+    <div id="login-view" class="login-container">
+        <h2>GitHub 파일 에디터 로그인</h2>
+        <p>GitHub Personal Access Token을 입력하세요.</p>
+        <p>토큰 생성 방법: GitHub → Settings → Developer settings → Personal access tokens → Generate new token</p>
+        <p>필요한 권한: repo (전체)</p>
+        <div>
+            <input type="text" id="token-input" placeholder="Personal Access Token" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            <button id="login-btn">로그인</button>
         </div>
-         <p id="login-error" class="hidden" style="color: red; margin-top: 15px;"></p>
     </div>
 
-    <!-- Main Application Section -->
-    <div id="app" class="hidden">
-        <div class="header">
-            <h1>GitHub 파일 관리자</h1>
-            <div class="user-info">
-                <img id="user-avatar" width="32" height="32" alt="User avatar">
-                <span id="user-name"></span>
-                <button id="logout-btn" class="secondary">로그아웃</button>
+    <div id="main-view" class="hidden">
+        <div class="sidebar">
+            <h3>레포지토리</h3>
+            <input type="text" id="repo-search" placeholder="레포지토리 검색" style="width: 100%; padding: 5px; margin-bottom: 10px;">
+            <ul id="repo-list" class="repo-list"></ul>
+            
+            <div id="files-container" class="hidden">
+                <h3>파일 목록</h3>
+                <input type="text" id="file-search" placeholder="파일 검색" style="width: 100%; padding: 5px; margin-bottom: 10px;">
+                <button id="new-file-btn">새 파일</button>
+                <ul id="file-list" class="file-list"></ul>
             </div>
         </div>
-
-        <div class="container">
-            <div class="sidebar">
-                <h2>레포지토리</h2>
-                <select id="repo-visibility">
-                    <option value="all">모든 레포지토리</option>
-                    <option value="public">공개 레포지토리</option>
-                    <option value="private">비공개 레포지토리</option>
-                </select>
-                <ul id="repo-list" class="repo-list"></ul>
-            </div>
-
-            <div class="content">
-                <div id="repo-content" class="hidden">
-                    <h2 id="current-repo">레포지토리를 선택하세요</h2>
-                    <div id="path-nav"></div>
-                    <button id="new-file-btn" class="hidden">새 파일 생성</button>
-                    <ul id="file-list" class="file-list"></ul>
-                     <p id="repo-status" class="hidden" style="color: #57606a; margin-top: 10px;"></p>
+        
+        <div class="main-content">
+            <div id="editor-container" class="editor-container hidden">
+                <div class="file-metadata">
+                    <input type="text" id="file-path" placeholder="파일 경로" style="width: 100%; padding: 5px; margin-bottom: 10px;">
                 </div>
-
-                <div id="file-editor" class="hidden">
-                    <h2>파일 편집</h2>
-                    <div id="file-path" style="font-family: monospace; margin-bottom: 10px; color: #57606a;"></div>
-                    <label for="file-name">파일 이름:</label>
-                    <input type="text" id="file-name" placeholder="파일 이름 (예: README.md)">
-                    <label for="file-content">파일 내용:</label>
-                    <textarea id="file-content"></textarea>
-                    <div>
-                        <label for="commit-message">커밋 메시지:</label>
-                        <input type="text" id="commit-message" placeholder="커밋 메시지 (예: 파일 업데이트)">
-                        <button id="save-file-btn">저장</button>
-                        <button id="cancel-edit-btn" class="secondary">취소</button>
-                        <button id="delete-file-btn" class="danger">삭제</button>
-                    </div>
-                    <p id="editor-status" class="hidden" style="color: red; margin-top: 10px;"></p>
+                
+                <div class="toolbar">
+                    <button id="save-btn">저장</button>
+                    <button id="delete-btn">삭제</button>
+                    <button id="insert-code-btn">코드 블록 (F9)</button>
+                    <button id="insert-quote-btn">인용 (Ctrl+/)</button>
+                    <button id="insert-image-btn">이미지 삽입</button>
                 </div>
+                
+                <textarea id="editor"></textarea>
+                
+                <div id="status-bar" class="status-bar hidden"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- GitHub OAuth Configuration (Device Flow) ---
-        const clientId = 'Ov23liAGHXQS0X09MzFR'; // <<-- YOUR GITHUB OAUTH APP CLIENT ID
-        const scope = 'repo'; // Required scope for repository access
-
-        // --- DOM Elements ---
-        const loginSection = document.getElementById('login-section');
-        const loginBtn = document.getElementById('login-btn');
-        const loginInstructions = document.getElementById('login-instructions');
-        const verificationUriEl = document.getElementById('verification-uri');
-        const userCodeEl = document.getElementById('user-code');
-        const statusMessageEl = document.getElementById('status-message');
-        const loginErrorEl = document.getElementById('login-error');
-
-        const appSection = document.getElementById('app');
-        const logoutBtn = document.getElementById('logout-btn');
-        const userAvatar = document.getElementById('user-avatar');
-        const userName = document.getElementById('user-name');
-        const repoList = document.getElementById('repo-list');
-        const repoVisibility = document.getElementById('repo-visibility');
-
-        const repoContent = document.getElementById('repo-content');
-        const currentRepo = document.getElementById('current-repo');
-        const pathNav = document.getElementById('path-nav');
-        const newFileBtn = document.getElementById('new-file-btn');
-        const fileList = document.getElementById('file-list');
-        const repoStatus = document.getElementById('repo-status');
-
-
-        const fileEditor = document.getElementById('file-editor');
-        const filePath = document.getElementById('file-path');
-        const fileName = document.getElementById('file-name');
-        const fileContent = document.getElementById('file-content');
-        const commitMessage = document.getElementById('commit-message');
-        const saveFileBtn = document.getElementById('save-file-btn');
-        const cancelEditBtn = document.getElementById('cancel-edit-btn');
-        const deleteFileBtn = document.getElementById('delete-file-btn');
-        const editorStatus = document.getElementById('editor-status');
-
-
-        // --- State Variables ---
-        let accessToken = null;
-        let selectedRepoFullName = '';
+        // 전역 변수
+        let token = '';
+        let username = '';
+        let currentRepo = '';
+        let currentBranch = '';
         let currentPath = '';
         let currentSha = '';
-        let isNewFile = false;
-        let pollingIntervalId = null; // To store the interval ID for polling
-        let pollingTimeoutId = null; // To store the timeout ID for polling expiration
-
-        // --- Helper Functions ---
-        function showLoginError(message) {
-            loginErrorEl.textContent = message;
-            loginErrorEl.classList.remove('hidden');
-        }
-        function hideLoginError() {
-            loginErrorEl.classList.add('hidden');
-        }
-        function showEditorError(message) {
-            editorStatus.textContent = message;
-            editorStatus.classList.remove('hidden');
-        }
-        function hideEditorError() {
-            editorStatus.classList.add('hidden');
-        }
-        function showRepoStatus(message) {
-            repoStatus.textContent = message;
-             repoStatus.classList.remove('hidden');
-        }
-        function hideRepoStatus() {
-            repoStatus.classList.add('hidden');
-        }
-
-
-        function showApp() {
-            loginSection.classList.add('hidden');
-            appSection.classList.remove('hidden');
-        }
-
-        function showLogin() {
-            appSection.classList.add('hidden');
-            loginSection.classList.remove('hidden');
-            loginInstructions.classList.add('hidden'); // Hide instructions initially
-            loginBtn.disabled = false; // Re-enable login button
-             hideLoginError();
-        }
-
-        function stopPolling() {
-            if (pollingIntervalId) {
-                clearInterval(pollingIntervalId);
-                pollingIntervalId = null;
+        
+        // DOM 요소
+        const loginView = document.getElementById('login-view');
+        const mainView = document.getElementById('main-view');
+        const tokenInput = document.getElementById('token-input');
+        const loginBtn = document.getElementById('login-btn');
+        const repoSearch = document.getElementById('repo-search');
+        const repoList = document.getElementById('repo-list');
+        const filesContainer = document.getElementById('files-container');
+        const fileSearch = document.getElementById('file-search');
+        const fileList = document.getElementById('file-list');
+        const editorContainer = document.getElementById('editor-container');
+        const filePath = document.getElementById('file-path');
+        const editor = document.getElementById('editor');
+        const saveBtn = document.getElementById('save-btn');
+        const deleteBtn = document.getElementById('delete-btn');
+        const newFileBtn = document.getElementById('new-file-btn');
+        const insertCodeBtn = document.getElementById('insert-code-btn');
+        const insertQuoteBtn = document.getElementById('insert-quote-btn');
+        const insertImageBtn = document.getElementById('insert-image-btn');
+        const statusBar = document.getElementById('status-bar');
+        
+        // 이벤트 리스너
+        document.addEventListener('DOMContentLoaded', () => {
+            // 저장된 토큰이 있는지 확인
+            const savedToken = localStorage.getItem('github_token');
+            if (savedToken) {
+                token = savedToken;
+                validateToken();
             }
-            if (pollingTimeoutId) {
-                clearTimeout(pollingTimeoutId);
-                pollingTimeoutId = null;
-            }
-        }
-
-        async function apiFetch(url, options = {}) {
-            const headers = {
-                'Accept': 'application/vnd.github.v3+json', // Recommended header
-                ...options.headers, // Allow overriding headers
-            };
-            if (accessToken) {
-                headers['Authorization'] = `Bearer ${accessToken}`;
-            }
-
-            try {
-                const response = await fetch(url, { ...options, headers });
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ message: `HTTP Error ${response.status}` }));
-                    const errorMessage = errorData.message || `Request failed with status ${response.status}`;
-                    console.error(`API Error (${url}): ${errorMessage}`, errorData);
-                    throw new Error(errorMessage); // Throw error to be caught by caller
+            
+            // 로그인 버튼 클릭
+            loginBtn.addEventListener('click', () => {
+                token = tokenInput.value.trim();
+                if (token) {
+                    validateToken();
+                } else {
+                    showStatus('토큰을 입력해주세요.', 'error');
                 }
-                 // Handle successful responses with no content (like DELETE)
-                if (response.status === 204) {
-                    return null; // Or return an indication of success like { success: true }
+            });
+            
+            // 레포지토리 검색
+            repoSearch.addEventListener('input', debounce(() => {
+                fetchRepositories(repoSearch.value);
+            }, 300));
+            
+            // 파일 검색
+            fileSearch.addEventListener('input', debounce(() => {
+                const query = fileSearch.value.trim();
+                const items = fileList.querySelectorAll('li');
+                items.forEach(item => {
+                    if (item.textContent.toLowerCase().includes(query.toLowerCase())) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            }, 300));
+            
+            // 새 파일 버튼
+            newFileBtn.addEventListener('click', () => {
+                currentPath = '';
+                currentSha = '';
+                filePath.value = '';
+                editor.value = '';
+                editorContainer.classList.remove('hidden');
+            });
+            
+            // 저장 버튼
+            saveBtn.addEventListener('click', saveFile);
+            
+            // 삭제 버튼
+            deleteBtn.addEventListener('click', deleteFile);
+            
+            // 코드 블록 삽입
+            insertCodeBtn.addEventListener('click', () => {
+                insertAtCursor(editor, '``````');
+                // 커서를 코드 블록 중간에 위치시키기
+                const cursorPos = editor.selectionStart - 4;
+                editor.setSelectionRange(cursorPos, cursorPos);
+            });
+            
+            // 인용 삽입
+            insertQuoteBtn.addEventListener('click', () => {
+                insertAtCursor(editor, '> ');
+            });
+            
+            // 이미지 삽입
+            insertImageBtn.addEventListener('click', () => {
+                const imageUrl = prompt('이미지 URL을 입력하세요:');
+                if (imageUrl) {
+                    insertAtCursor(editor, `![이미지](${imageUrl})`);
                 }
-                return await response.json(); // Parse JSON for successful responses with content
-            } catch (error) {
-                 console.error(`Fetch error for ${url}:`, error);
-                 // Re-throw the error so the calling function knows it failed
-                 throw error;
-            }
-        }
-
-
-        // --- Device Flow Functions ---
-        async function startDeviceLogin() {
-            loginBtn.disabled = true;
-            hideLoginError();
-            statusMessageEl.textContent = 'GitHub에 기기 코드 요청 중...';
-            loginInstructions.classList.remove('hidden');
-
+            });
+            
+            // 키보드 단축키
+            editor.addEventListener('keydown', (e) => {
+                // F9: 코드 블록
+                if (e.key === 'F9') {
+                    e.preventDefault();
+                    insertCodeBtn.click();
+                }
+                
+                // Ctrl+/: 인용
+                if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+                    e.preventDefault();
+                    insertQuoteBtn.click();
+                }
+            });
+            
+            // 이미지 붙여넣기 지원
+            editor.addEventListener('paste', async (e) => {
+                const items = e.clipboardData.items;
+                
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        e.preventDefault();
+                        
+                        const blob = items[i].getAsFile();
+                        const reader = new FileReader();
+                        
+                        reader.onload = async (event) => {
+                            const base64data = event.target.result;
+                            
+                            try {
+                                showStatus('이미지 업로드 중...', 'info');
+                                
+                                // 이미지 파일 이름 생성
+                                const timestamp = new Date().getTime();
+                                const filename = `image_${timestamp}.png`;
+                                
+                                // Base64 데이터에서 실제 콘텐츠 부분만 추출
+                                const content = base64data.split(',')[1];
+                                
+                                // GitHub에 이미지 업로드
+                                const uploadResponse = await fetch(`https://api.github.com/repos/${username}/${currentRepo}/contents/images/${filename}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Authorization': `token ${token}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        message: `Upload image ${filename}`,
+                                        content: content,
+                                        branch: currentBranch
+                                    })
+                                });
+                                
+                                if (uploadResponse.ok) {
+                                    const data = await uploadResponse.json();
+                                    const imageUrl = data.content.download_url;
+                                    
+                                    // 에디터에 이미지 마크다운 삽입
+                                    insertAtCursor(editor, `![${filename}](${imageUrl})`);
+                                    showStatus('이미지가 업로드되었습니다.', 'success');
+                                } else {
+                                    throw new Error('이미지 업로드 실패');
+                                }
+                            } catch (error) {
+                                showStatus(`이미지 업로드 오류: ${error.message}`, 'error');
+                            }
+                        };
+                        
+                        reader.readAsDataURL(blob);
+                        break;
+                    }
+                }
+            });
+        });
+        
+        // 토큰 검증 및 사용자 정보 가져오기
+        async function validateToken() {
             try {
-                const response = await fetch('https://github.com/login/device/code', {
-                    method: 'POST',
+                const response = await fetch('https://api.github.com/user', {
                     headers: {
-                        'Accept': 'application/json',
+                        'Authorization': `token ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    username = data.login;
+                    
+                    // 토큰 저장
+                    localStorage.setItem('github_token', token);
+                    
+                    // UI 전환
+                    loginView.classList.add('hidden');
+                    mainView.classList.remove('hidden');
+                    
+                    // 레포지토리 목록 가져오기
+                    fetchRepositories();
+                } else {
+                    throw new Error('인증 실패');
+                }
+            } catch (error) {
+                localStorage.removeItem('github_token');
+                showStatus(`로그인 오류: ${error.message}`, 'error');
+            }
+        }
+        
+        // 레포지토리 목록 가져오기
+        async function fetchRepositories(query = '') {
+            try {
+                let url = `https://api.github.com/user/repos?sort=updated&per_page=100`;
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `token ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const repos = await response.json();
+                    
+                    // 검색어로 필터링
+                    const filteredRepos = query 
+                        ? repos.filter(repo => repo.name.toLowerCase().includes(query.toLowerCase()))
+                        : repos;
+                    
+                    // 목록 렌더링
+                    repoList.innerHTML = '';
+                    filteredRepos.forEach(repo => {
+                        const li = document.createElement('li');
+                        li.textContent = repo.name;
+                        li.addEventListener('click', () => {
+                            // 선택된 레포지토리 강조
+                            document.querySelectorAll('#repo-list li').forEach(el => {
+                                el.classList.remove('active');
+                            });
+                            li.classList.add('active');
+                            
+                            // 레포지토리 선택
+                            currentRepo = repo.name;
+                            currentBranch = repo.default_branch;
+                            
+                            // 파일 목록 가져오기
+                            fetchFiles();
+                        });
+                        repoList.appendChild(li);
+                    });
+                } else {
+                    throw new Error('레포지토리 목록을 가져오는데 실패했습니다.');
+                }
+            } catch (error) {
+                showStatus(`오류: ${error.message}`, 'error');
+            }
+        }
+        
+        // 파일 목록 가져오기
+        async function fetchFiles(path = '') {
+            try {
+                const response = await fetch(`https://api.github.com/repos/${username}/${currentRepo}/contents/${path}`, {
+                    headers: {
+                        'Authorization': `token ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const files = await response.json();
+                    
+                    // 파일 목록 표시
+                    filesContainer.classList.remove('hidden');
+                    fileList.innerHTML = '';
+                    
+                    // 상위 디렉토리로 가는 항목 (현재 경로가 루트가 아닌 경우)
+                    if (path) {
+                        const parentPath = path.split('/').slice(0, -1).join('/');
+                        const li = document.createElement('li');
+                        li.textContent = '../ (상위 디렉토리)';
+                        li.addEventListener('click', () => {
+                            fetchFiles(parentPath);
+                        });
+                        fileList.appendChild(li);
+                    }
+                    
+                    // 디렉토리 먼저, 그 다음 파일 순으로 정렬
+                    const sortedFiles = files.sort((a, b) => {
+                        if (a.type === b.type) {
+                            return a.name.localeCompare(b.name);
+                        }
+                        return a.type === 'dir' ? -1 : 1;
+                    });
+                    
+                    sortedFiles.forEach(file => {
+                        const li = document.createElement('li');
+                        li.textContent = file.type === 'dir' ? `📁 ${file.name}/` : `📄 ${file.name}`;
+                        
+                        li.addEventListener('click', () => {
+                            if (file.type === 'dir') {
+                                // 디렉토리인 경우 해당 경로의 파일 목록 가져오기
+                                fetchFiles(file.path);
+                            } else {
+                                // 파일인 경우 내용 가져오기
+                                fetchFileContent(file.path, file.sha);
+                            }
+                        });
+                        
+                        fileList.appendChild(li);
+                    });
+                } else {
+                    throw new Error('파일 목록을 가져오는데 실패했습니다.');
+                }
+            } catch (error) {
+                showStatus(`오류: ${error.message}`, 'error');
+            }
+        }
+        
+        // 파일 내용 가져오기
+        async function fetchFileContent(
+        // 파일 내용 가져오기
+        async function fetchFileContent(path, sha) {
+            try {
+                const response = await fetch(`https://api.github.com/repos/${username}/${currentRepo}/contents/${path}`, {
+                    headers: {
+                        'Authorization': `token ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // 바이너리 파일인 경우
+                    if (data.encoding === 'base64' && isBinaryFile(data.name)) {
+                        showStatus('바이너리 파일은 편집할 수 없습니다.', 'error');
+                        return;
+                    }
+                    
+                    // 파일 내용 디코딩
+                    const content = data.encoding === 'base64' ? atob(data.content) : data.content;
+                    
+                    // 에디터에 표시
+                    currentPath = path;
+                    currentSha = sha;
+                    filePath.value = path;
+                    editor.value = content;
+                    editorContainer.classList.remove('hidden');
+                } else {
+                    throw new Error('파일 내용을 가져오는데 실패했습니다.');
+                }
+            } catch (error) {
+                showStatus(`오류: ${error.message}`, 'error');
+            }
+        }
+        
+        // 파일 저장
+        async function saveFile() {
+            try {
+                if (!filePath.value) {
+                    showStatus('파일 경로를 입력해주세요.', 'error');
+                    return;
+                }
+                
+                const path = filePath.value;
+                const content = editor.value;
+                
+                // 파일 내용을 Base64로 인코딩
+                const encodedContent = btoa(unescape(encodeURIComponent(content)));
+                
+                const requestBody = {
+                    message: `Update ${path}`,
+                    content: encodedContent,
+                    branch: currentBranch
+                };
+                
+                // 기존 파일을 수정하는 경우 SHA 추가
+                if (currentSha) {
+                    requestBody.sha = currentSha;
+                }
+                
+                const response = await fetch(`https://api.github.com/repos/${username}/${currentRepo}/contents/${path}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ client_id: clientId, scope: scope })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`기기 코드 요청 실패: ${errorData.error_description || errorData.error || response.status}`);
-                }
-
-                const data = await response.json();
-
-                verificationUriEl.textContent = data.verification_uri;
-                verificationUriEl.href = data.verification_uri; // Make it a link
-                userCodeEl.textContent = data.user_code;
-                statusMessageEl.textContent = '위에 표시된 코드 입력 대기 중... 이 페이지를 닫지 마세요.';
-
-                // Start polling
-                pollForToken(data.device_code, data.interval, data.expires_in);
-
-            } catch (error) {
-                console.error('Device login initiation error:', error);
-                showLoginError(`로그인 시작 오류: ${error.message}`);
-                loginInstructions.classList.add('hidden');
-                loginBtn.disabled = false;
-            }
-        }
-
-        function pollForToken(deviceCode, intervalSeconds, expiresInSeconds) {
-            stopPolling(); // Ensure no previous polling is running
-
-            const intervalMillis = (intervalSeconds || 5) * 1000; // Default to 5 seconds if interval not provided
-            const endTime = Date.now() + (expiresInSeconds || 900) * 1000; // Default to 15 minutes expiry
-
-            pollingIntervalId = setInterval(async () => {
-                if (Date.now() > endTime) {
-                    stopPolling();
-                    console.error("Device code expired.");
-                    showLoginError("인증 시간이 만료되었습니다. 다시 시도해주세요.");
-                    loginInstructions.classList.add('hidden');
-                    loginBtn.disabled = false;
-                    return;
-                }
-
-                try {
-                    const response = await fetch('https://github.com/login/oauth/access_token', {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            client_id: clientId,
-                            device_code: deviceCode,
-                            grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok && data.access_token) {
-                        // SUCCESS!
-                        stopPolling();
-                        accessToken = data.access_token;
-                        localStorage.setItem('github_token', accessToken); // Store token
-                        console.log("로그인 성공!");
-                        showApp();
-                        await fetchUserInfo(); // Fetch user info immediately after login
-                        await fetchRepositories(); // Fetch repos
-                    } else if (data.error) {
-                        if (data.error === 'authorization_pending') {
-                            // Expected, continue polling
-                            statusMessageEl.textContent = '사용자 인증 대기 중...';
-                        } else if (data.error === 'slow_down') {
-                            // Increase interval (though setInterval doesn't directly support changing interval)
-                            // For simplicity, we just log it here. A more robust solution might restart the interval.
-                            console.log("GitHub 요청: 폴링 속도 늦춤.");
-                            statusMessageEl.textContent = '확인 중 (속도 조절)...';
-                        } else if (data.error === 'expired_token') {
-                             stopPolling();
-                             console.error("Device code expired.");
-                             showLoginError("인증 시간이 만료되었습니다. 다시 시도해주세요.");
-                             loginInstructions.classList.add('hidden');
-                             loginBtn.disabled = false;
-                        } else if (data.error === 'access_denied') {
-                             stopPolling();
-                             console.error("User denied access.");
-                             showLoginError("사용자가 접근을 거부했습니다. 다시 시도해주세요.");
-                             loginInstructions.classList.add('hidden');
-                             loginBtn.disabled = false;
-                        }
-                        else {
-                            // Other fatal error
-                            stopPolling();
-                            console.error("Polling error:", data.error_description || data.error);
-                            showLoginError(`인증 오류: ${data.error_description || data.error}`);
-                            loginInstructions.classList.add('hidden');
-                            loginBtn.disabled = false;
-                        }
-                    }
-
-                } catch (error) {
-                    console.error('Polling network error:', error);
-                    // Continue polling on network errors unless it's expired
-                    statusMessageEl.textContent = '네트워크 확인 중...';
-                }
-            }, intervalMillis);
-
-             // Set a master timeout just in case
-            pollingTimeoutId = setTimeout(() => {
-                if (pollingIntervalId) { // Check if still polling
-                     stopPolling();
-                     console.error("Polling timed out.");
-                     showLoginError("인증 시간이 만료되었습니다 (타임아웃). 다시 시도해주세요.");
-                     loginInstructions.classList.add('hidden');
-                     loginBtn.disabled = false;
-                 }
-            }, (expiresInSeconds + 10) * 1000); // Add a small buffer to expiry time
-        }
-
-
-        // --- Application Logic Functions ---
-
-        async function fetchUserInfo() {
-            try {
-                 const data = await apiFetch('https://api.github.com/user');
-                userAvatar.src = data.avatar_url;
-                userName.textContent = data.login;
-            } catch (error) {
-                console.error('사용자 정보 가져오기 오류:', error);
-                // Handle error - maybe force logout?
-                 alert(`사용자 정보를 가져오는 데 실패했습니다: ${error.message}. 다시 로그인해야 할 수 있습니다.`);
-                 logout();
-            }
-        }
-
-        async function fetchRepositories() {
-            repoList.innerHTML = '<li>로딩 중...</li>'; // Indicate loading
-            repoContent.classList.add('hidden'); // Hide repo content area
-             fileEditor.classList.add('hidden'); // Hide editor
-             hideRepoStatus();
-
-            const visibility = repoVisibility.value;
-            // https://docs.github.com/en/rest/repos/repos#list-repositories-for-the-authenticated-user
-            const url = `https://api.github.com/user/repos?sort=updated&direction=desc&per_page=100&visibility=${visibility}`; // Added per_page
-
-            try {
-                const data = await apiFetch(url);
-                repoList.innerHTML = ''; // Clear loading/previous list
-                if (data.length === 0) {
-                     repoList.innerHTML = '<li>조건에 맞는 레포지토리가 없습니다.</li>';
-                     return;
-                }
-                data.forEach(repo => {
-                    const li = document.createElement('li');
-                    li.textContent = repo.name + (repo.private ? ' (Private)' : '');
-                    li.dataset.name = repo.name;
-                    li.dataset.fullName = repo.full_name;
-                    li.addEventListener('click', () => selectRepository(repo.full_name, repo.name));
-                    repoList.appendChild(li);
-                });
-            } catch (error) {
-                console.error('레포지토리 가져오기 오류:', error);
-                repoList.innerHTML = `<li>오류 발생: ${error.message}</li>`;
-            }
-        }
-
-        function selectRepository(fullName, name) {
-            selectedRepoFullName = fullName;
-            currentRepo.textContent = name;
-            currentPath = ''; // Reset path to root
-            fetchRepoContents(); // Fetch root contents
-            repoContent.classList.remove('hidden');
-            newFileBtn.classList.remove('hidden');
-            fileEditor.classList.add('hidden');
-        }
-
-        async function fetchRepoContents(path = '') {
-            currentPath = path;
-            updatePathNavigation();
-            fileList.innerHTML = '<li>로딩 중...</li>'; // Indicate loading
-             hideRepoStatus();
-
-            const url = `https://api.github.com/repos/${selectedRepoFullName}/contents/${path}`;
-
-            try {
-                const data = await apiFetch(url);
-                fileList.innerHTML = ''; // Clear loading/previous list
-
-                if (!Array.isArray(data)) {
-                     // This shouldn't happen if the path is a directory, handle potentially getting file details directly?
-                     console.warn("Received non-array response for directory path:", data);
-                     showRepoStatus("디렉토리 내용을 가져올 수 없습니다.");
-                     return;
-                 }
-
-                if (data.length === 0) {
-                    showRepoStatus("이 디렉토리는 비어 있습니다.");
-                    return;
-                }
-
-                // Sort directories first, then files
-                data.sort((a, b) => {
-                    if (a.type === 'dir' && b.type !== 'dir') return -1;
-                    if (a.type !== 'dir' && b.type === 'dir') return 1;
-                    return a.name.localeCompare(b.name);
-                });
-
-                data.forEach(item => {
-                    const li = document.createElement('li');
-                    const nameSpan = document.createElement('span');
-
-                    if (item.type === 'dir') {
-                        nameSpan.textContent = `📁 ${item.name}`;
-                        li.addEventListener('click', () => fetchRepoContents(item.path));
-                    } else if (item.type === 'file') {
-                        nameSpan.textContent = `📄 ${item.name}`;
-                        const actions = document.createElement('div');
-                        actions.classList.add('actions');
-
-                        const editBtn = document.createElement('button');
-                        editBtn.textContent = '편집';
-                        editBtn.classList.add('secondary');
-                        editBtn.onclick = (e) => { // Use onclick for simplicity here
-                            e.stopPropagation(); // Prevent li click
-                            editFile(item);
-                        };
-                        actions.appendChild(editBtn);
-                         li.appendChild(actions); // Add actions div
-
-                         li.addEventListener('click', () => editFile(item)); // Click anywhere on file item to edit
-                    } else {
-                         nameSpan.textContent = `❓ ${item.name} (${item.type})`; // Handle other types like submodules, symlinks
-                    }
-
-                     li.prepend(nameSpan); // Add name span before actions
-                     fileList.appendChild(li);
-                });
-            } catch (error) {
-                console.error('레포지토리 내용 가져오기 오류:', error);
-                 showRepoStatus(`콘텐츠 로드 오류: ${error.message}`);
-                fileList.innerHTML = ''; // Clear list on error
-            }
-        }
-
-        function updatePathNavigation() {
-            pathNav.innerHTML = '';
-            const paths = currentPath.split('/').filter(p => p);
-
-            const rootLink = document.createElement('a');
-            rootLink.textContent = selectedRepoFullName.split('/')[1]; // Show repo name as root
-            rootLink.href = '#';
-            rootLink.onclick = (e) => {
-                e.preventDefault();
-                fetchRepoContents('');
-            };
-            pathNav.appendChild(rootLink);
-
-            let currentPathBuild = '';
-            paths.forEach((pathSegment) => {
-                pathNav.appendChild(document.createTextNode(' / '));
-                currentPathBuild += (currentPathBuild ? '/' : '') + pathSegment;
-                const pathLink = document.createElement('a');
-                pathLink.textContent = pathSegment;
-                pathLink.href = '#';
-                const pathToFetch = currentPathBuild; // Capture path at this iteration
-                pathLink.onclick = (e) => {
-                    e.preventDefault();
-                    fetchRepoContents(pathToFetch);
-                };
-                pathNav.appendChild(pathLink);
-            });
-        }
-
-        async function editFile(fileItem) {
-            isNewFile = false;
-            hideEditorError(); // Clear previous errors
-            fileContent.value = '파일 내용 로딩 중...'; // Placeholder
-            repoContent.classList.add('hidden');
-            fileEditor.classList.remove('hidden');
-            deleteFileBtn.classList.remove('hidden'); // Show delete button for existing files
-
-            fileName.value = fileItem.name;
-            filePath.textContent = `경로: ${fileItem.path}`;
-            currentSha = fileItem.sha;
-            commitMessage.value = `Update ${fileItem.name}`; // Default commit message
-
-            try {
-                 // Use the API to get the raw content, which handles larger files better than 'content' field
-                 const url = fileItem.download_url;
-                 // Need a fetch call that gets raw text, not JSON
-                 const response = await fetch(url, {
-                     headers: { 'Authorization': `Bearer ${accessToken}` }
-                 });
-                 if (!response.ok) {
-                     throw new Error(`파일 내용을 가져오지 못했습니다: ${response.status}`);
-                 }
-                 const textContent = await response.text();
-                 fileContent.value = textContent;
-            } catch (error) {
-                 console.error('파일 내용 가져오기 오류:', error);
-                 showEditorError(`파일 로드 실패: ${error.message}`);
-                 fileContent.value = `*** 파일 내용을 가져오는 데 실패했습니다. ***\n오류: ${error.message}`;
-            }
-        }
-
-        function createNewFile() {
-            isNewFile = true;
-            hideEditorError();
-            repoContent.classList.add('hidden');
-            fileEditor.classList.remove('hidden');
-            deleteFileBtn.classList.add('hidden'); // Hide delete for new files
-
-            fileName.value = '';
-            fileContent.value = '';
-            filePath.textContent = `경로: ${currentPath || '/'}`; // Show current directory
-            commitMessage.value = 'Create new file';
-            currentSha = null; // No SHA for new files
-        }
-
-
-        async function saveFile() {
-            const newFileName = fileName.value.trim();
-            const content = fileContent.value;
-            let message = commitMessage.value.trim();
-
-             hideEditorError(); // Clear previous errors
-
-            if (!newFileName) {
-                showEditorError('파일 이름을 입력하세요.');
-                return;
-            }
-            if (!message) {
-                 // Provide a default commit message if empty
-                message = isNewFile ? `Create ${newFileName}` : `Update ${newFileName}`;
-            }
-
-
-            // Determine the full path for the API call
-            const pathForAPI = currentPath ? `${currentPath}/${newFileName}` : newFileName;
-
-            // Base64 encode the content (GitHub API requires this)
-            let encodedContent;
-            try {
-                // Handle potential UTF-8 characters correctly before base64 encoding
-                 encodedContent = btoa(unescape(encodeURIComponent(content)));
-            } catch (e) {
-                console.error("Base64 Encoding Error:", e);
-                showEditorError('파일 내용을 인코딩하는 중 오류 발생.');
-                return;
-            }
-
-
-            const requestBody = {
-                message: message,
-                content: encodedContent,
-                branch: 'main' // Or detect default branch if needed
-            };
-
-            // If updating an existing file, include its SHA
-            if (!isNewFile) {
-                 if (!currentSha) {
-                     showEditorError('오류: 기존 파일의 SHA가 없습니다. 다시 시도해주세요.');
-                     return;
-                 }
-                requestBody.sha = currentSha;
-            }
-
-            saveFileBtn.disabled = true; // Prevent double-clicks
-            saveFileBtn.textContent = '저장 중...';
-
-            try {
-                const url = `https://api.github.com/repos/${selectedRepoFullName}/contents/${pathForAPI}`;
-                await apiFetch(url, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)
                 });
-
-                alert('파일이 성공적으로 저장되었습니다!');
-                fileEditor.classList.add('hidden');
-                repoContent.classList.remove('hidden');
-                await fetchRepoContents(currentPath); // Refresh the file list
-
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentPath = path;
+                    currentSha = data.content.sha;
+                    showStatus('파일이 저장되었습니다.', 'success');
+                    
+                    // 파일 목록 새로고침
+                    const dirPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+                    fetchFiles(dirPath);
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || '파일 저장에 실패했습니다.');
+                }
             } catch (error) {
-                console.error('파일 저장 오류:', error);
-                showEditorError(`파일 저장 실패: ${error.message}`);
-            } finally {
-                 saveFileBtn.disabled = false;
-                 saveFileBtn.textContent = '저장';
+                showStatus(`오류: ${error.message}`, 'error');
             }
         }
-
+        
+        // 파일 삭제
         async function deleteFile() {
-            if (!currentSha) {
-                showEditorError('오류: 삭제할 파일의 SHA가 없습니다.');
-                return;
-            }
-
-            const pathToDelete = currentPath ? `${currentPath}/${fileName.value.trim()}` : fileName.value.trim();
-             const confirmMessage = `'${pathToDelete}' 파일을 정말로 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`;
-
-             if (!confirm(confirmMessage)) {
-                 return;
-             }
-
-
-            hideEditorError();
-            deleteFileBtn.disabled = true;
-            deleteFileBtn.textContent = '삭제 중...';
-
-            const message = commitMessage.value.trim() || `Delete ${fileName.value.trim()}`; // Use commit message or default
-
-
             try {
-                 const url = `https://api.github.com/repos/${selectedRepoFullName}/contents/${pathToDelete}`;
-                 await apiFetch(url, {
+                if (!currentPath || !currentSha) {
+                    showStatus('삭제할 파일이 선택되지 않았습니다.', 'error');
+                    return;
+                }
+                
+                if (!confirm(`정말로 "${currentPath}" 파일을 삭제하시겠습니까?`)) {
+                    return;
+                }
+                
+                const response = await fetch(`https://api.github.com/repos/${username}/${currentRepo}/contents/${currentPath}`, {
                     method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify({
-                        message: message,
+                        message: `Delete ${currentPath}`,
                         sha: currentSha,
-                        branch: 'main' // Or detect default branch
+                        branch: currentBranch
                     })
                 });
-
-                alert('파일이 성공적으로 삭제되었습니다!');
-                fileEditor.classList.add('hidden');
-                repoContent.classList.remove('hidden');
-                await fetchRepoContents(currentPath); // Refresh the list
-
-             } catch (error) {
-                 console.error('파일 삭제 오류:', error);
-                 showEditorError(`파일 삭제 실패: ${error.message}`);
-             } finally {
-                 deleteFileBtn.disabled = false;
-                 deleteFileBtn.textContent = '삭제';
-             }
-        }
-
-        function logout() {
-            stopPolling(); // Ensure polling stops if logout happens during auth
-            accessToken = null;
-            localStorage.removeItem('github_token');
-            selectedRepoFullName = '';
-            currentPath = '';
-            showLogin();
-            // Clear UI elements
-            repoList.innerHTML = '';
-            fileList.innerHTML = '';
-            currentRepo.textContent = '레포지토리를 선택하세요';
-             repoContent.classList.add('hidden');
-             fileEditor.classList.add('hidden');
-            userAvatar.src = '';
-            userName.textContent = '';
-        }
-
-
-        // --- Event Listeners ---
-        loginBtn.addEventListener('click', startDeviceLogin);
-        logoutBtn.addEventListener('click', logout);
-        repoVisibility.addEventListener('change', fetchRepositories);
-        newFileBtn.addEventListener('click', createNewFile);
-        saveFileBtn.addEventListener('click', saveFile);
-        cancelEditBtn.addEventListener('click', () => {
-            fileEditor.classList.add('hidden');
-            repoContent.classList.remove('hidden');
-             hideEditorError();
-        });
-        deleteFileBtn.addEventListener('click', deleteFile);
-
-
-        // --- Initialization ---
-        window.onload = async () => {
-            const storedToken = localStorage.getItem('github_token');
-            if (storedToken) {
-                accessToken = storedToken;
-                 console.log("Found stored token. Verifying and fetching data...");
-                try {
-                     // Verify token by fetching user info
-                     await fetchUserInfo();
-                     // If fetchUserInfo succeeds, token is likely valid
-                     showApp();
-                     await fetchRepositories(); // Fetch initial repos
-                 } catch (error) {
-                     // Token likely invalid or expired
-                     console.warn("Stored token seems invalid.", error.message);
-                     logout(); // Clear invalid token and show login
-                 }
-
-            } else {
-                showLogin(); // Show login section if no token
+                
+                if (response.ok) {
+                    showStatus('파일이 삭제되었습니다.', 'success');
+                    
+                    // 에디터 초기화
+                    currentPath = '';
+                    currentSha = '';
+                    filePath.value = '';
+                    editor.value = '';
+                    
+                    // 파일 목록 새로고침
+                    const dirPath = currentPath.includes('/') ? currentPath.substring(0, currentPath.lastIndexOf('/')) : '';
+                    fetchFiles(dirPath);
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || '파일 삭제에 실패했습니다.');
+                }
+            } catch (error) {
+                showStatus(`오류: ${error.message}`, 'error');
             }
-        };
-
+        }
+        
+        // 유틸리티 함수
+        
+        // 상태 메시지 표시
+        function showStatus(message, type) {
+            statusBar.textContent = message;
+            statusBar.className = `status-bar ${type}`;
+            statusBar.classList.remove('hidden');
+            
+            // 3초 후 메시지 숨기기
+            setTimeout(() => {
+                statusBar.classList.add('hidden');
+            }, 3000);
+        }
+        
+        // 디바운스 함수
+        function debounce(func, wait) {
+            let timeout;
+            return function() {
+                const context = this;
+                const args = arguments;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    func.apply(context, args);
+                }, wait);
+            };
+        }
+        
+        // 커서 위치에 텍스트 삽입
+        function insertAtCursor(textarea, text) {
+            const startPos = textarea.selectionStart;
+            const endPos = textarea.selectionEnd;
+            const scrollTop = textarea.scrollTop;
+            
+            textarea.value = textarea.value.substring(0, startPos) + text + textarea.value.substring(endPos, textarea.value.length);
+            
+            textarea.focus();
+            textarea.selectionStart = startPos + text.length;
+            textarea.selectionEnd = startPos + text.length;
+            textarea.scrollTop = scrollTop;
+        }
+        
+        // 바이너리 파일 체크
+        function isBinaryFile(filename) {
+            const binaryExtensions = [
+                '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.pdf', '.doc', '.docx',
+                '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar', '.7z', '.tar', '.gz',
+                '.exe', '.dll', '.so', '.class', '.jar', '.war', '.ear', '.pyc', '.pyo'
+            ];
+            
+            const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+            return binaryExtensions.includes(ext);
+        }
     </script>
 </body>
 </html>
