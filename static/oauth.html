@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub 파일 관리자</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .sidebar {
+            flex: 1;
+            border-right: 1px solid #e1e4e8;
+            padding-right: 20px;
+        }
+        .content {
+            flex: 3;
+        }
+        button {
+            background-color: #2da44e;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        button:hover {
+            background-color: #2c974b;
+        }
+        button.secondary {
+            background-color: #6e7781;
+        }
+        button.secondary:hover {
+            background-color: #57606a;
+        }
+        button.danger {
+            background-color: #cf222e;
+        }
+        button.danger:hover {
+            background-color: #a40e26;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 15px;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 300px;
+            font-family: monospace;
+        }
+        .repo-list {
+            list-style: none;
+            padding: 0;
+        }
+        .repo-list li {
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .repo-list li:hover {
+            background-color: #f6f8fa;
+        }
+        .file-list {
+            list-style: none;
+            padding: 0;
+        }
+        .file-list li {
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+        }
+        .file-list li:hover {
+            background-color: #f6f8fa;
+        }
+        .hidden {
+            display: none;
+        }
+        #login-section {
+            text-align: center;
+            margin: 50px auto;
+            max-width: 500px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e1e4e8;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-info img {
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-section">
+        <h1>GitHub 파일 관리자</h1>
+        <p>GitHub 계정으로 로그인하여 레포지토리 파일을 관리하세요.</p>
+        <button id="login-btn">GitHub로 로그인</button>
+    </div>
+
+    <div id="app" class="hidden">
+        <div class="header">
+            <h1>GitHub 파일 관리자</h1>
+            <div class="user-info">
+                <img id="user-avatar" width="32" height="32" alt="User avatar">
+                <span id="user-name"></span>
+                <button id="logout-btn" class="secondary">로그아웃</button>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="sidebar">
+                <h2>레포지토리</h2>
+                <select id="repo-visibility">
+                    <option value="all">모든 레포지토리</option>
+                    <option value="public">공개 레포지토리</option>
+                    <option value="private">비공개 레포지토리</option>
+                </select>
+                <ul id="repo-list" class="repo-list"></ul>
+            </div>
+
+            <div class="content">
+                <div id="repo-content" class="hidden">
+                    <h2 id="current-repo"></h2>
+                    <div id="path-nav"></div>
+                    <button id="new-file-btn">새 파일 생성</button>
+                    <ul id="file-list" class="file-list"></ul>
+                </div>
+
+                <div id="file-editor" class="hidden">
+                    <h2>파일 편집</h2>
+                    <p id="file-path"></p>
+                    <input type="text" id="file-name" placeholder="파일 이름">
+                    <textarea id="file-content"></textarea>
+                    <div>
+                        <input type="text" id="commit-message" placeholder="커밋 메시지">
+                        <button id="save-file-btn">저장</button>
+                        <button id="cancel-edit-btn" class="secondary">취소</button>
+                        <button id="delete-file-btn" class="danger">삭제</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // GitHub OAuth 설정
+        const clientId = 'Ov23liAGHXQS0X09MzFR'; // GitHub OAuth App의 Client ID로 변경하세요
+        const redirectUri = window.location.href;
+        const scope = 'repo'; // 레포지토리 접근 권한
+
+        // DOM 요소
+        const loginSection = document.getElementById('login-section');
+        const appSection = document.getElementById('app');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userAvatar = document.getElementById('user-avatar');
+        const userName = document.getElementById('user-name');
+        const repoList = document.getElementById('repo-list');
+        const repoVisibility = document.getElementById('repo-visibility');
+        const repoContent = document.getElementById('repo-content');
+        const currentRepo = document.getElementById('current-repo');
+        const pathNav = document.getElementById('path-nav');
+        const fileList = document.getElementById('file-list');
+        const fileEditor = document.getElementById('file-editor');
+        const filePath = document.getElementById('file-path');
+        const fileName = document.getElementById('file-name');
+        const fileContent = document.getElementById('file-content');
+        const commitMessage = document.getElementById('commit-message');
+        const saveFileBtn = document.getElementById('save-file-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const deleteFileBtn = document.getElementById('delete-file-btn');
+        const newFileBtn = document.getElementById('new-file-btn');
+
+        // 상태 변수
+        let accessToken = '';
+        let selectedRepo = '';
+        let currentPath = '';
+        let currentSha = '';
+        let isNewFile = false;
+
+        // 페이지 로드 시 실행
+        window.onload = function() {
+            // URL에서 코드 파라미터 확인
+            const code = new URLSearchParams(window.location.search).get('code');
+            if (code) {
+                // 코드가 있으면 액세스 토큰 요청
+                exchangeCodeForToken(code);
+            } else {
+                // 로컬 스토리지에서 토큰 확인
+                const token = localStorage.getItem('github_token');
+                if (token) {
+                    accessToken = token;
+                    showApp();
+                    fetchUserInfo();
+                    fetchRepositories();
+                }
+            }
+        };
+
+        // 로그인 버튼 클릭 이벤트
+        loginBtn.addEventListener('click', () => {
+            const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+            window.location.href = authUrl;
+        });
+
+        // 로그아웃 버튼 클릭 이벤트
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('github_token');
+            window.location.href = redirectUri.split('?')[0];
+        });
+
+        // 레포지토리 가시성 변경 이벤트
+        repoVisibility.addEventListener('change', fetchRepositories);
+
+        // 새 파일 생성 버튼 클릭 이벤트
+        newFileBtn.addEventListener('click', () => {
+            isNewFile = true;
+            showFileEditor();
+            fileName.value = '';
+            fileContent.value = '';
+            filePath.textContent = `${currentPath}`;
+            commitMessage.value = '새 파일 생성';
+            deleteFileBtn.style.display = 'none';
+        });
+
+        // 파일 저장 버튼 클릭 이벤트
+        saveFileBtn.addEventListener('click', saveFile);
+
+        // 편집 취소 버튼 클릭 이벤트
+        cancelEditBtn.addEventListener('click', () => {
+            fileEditor.classList.add('hidden');
+            repoContent.classList.remove('hidden');
+        });
+
+        // 파일 삭제 버튼 클릭 이벤트
+        deleteFileBtn.addEventListener('click', deleteFile);
+
+        // 코드를 액세스 토큰으로 교환
+        function exchangeCodeForToken(code) {
+            // 실제 애플리케이션에서는 서버 측에서 처리해야 합니다.
+            // 클라이언트 측에서 직접 처리하는 것은 보안상 좋지 않습니다.
+            // 이 예제에서는 서버가 있다고 가정하고 코드를 작성합니다.
+            
+            // 서버 엔드포인트로 코드를 보내 토큰을 받아옵니다.
+            fetch('https://your-server-endpoint/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ code })
+            })
+            .then(response => response.json())
+            .then(data => {
+                accessToken = data.access_token;
+                localStorage.setItem('github_token', accessToken);
+                
+                // URL에서 코드 파라미터 제거
+                const url = new URL(window.location.href);
+                url.searchParams.delete('code');
+                window.history.replaceState({}, document.title, url);
+                
+                showApp();
+                fetchUserInfo();
+                fetchRepositories();
+            })
+            .catch(error => {
+                console.error('토큰 교환 오류:', error);
+                alert('GitHub 로그인에 실패했습니다.');
+            });
+        }
+
+        // 사용자 정보 가져오기
+        function fetchUserInfo() {
+            fetch('https://api.github.com/user', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                userAvatar.src = data.avatar_url;
+                userName.textContent = data.login;
+            })
+            .catch(error => console.error('사용자 정보 가져오기 오류:', error));
+        }
+
+        // 레포지토리 목록 가져오기
+        function fetchRepositories() {
+            const visibility = repoVisibility.value;
+            let url = 'https://api.github.com/user/repos?sort=updated&direction=desc';
+            
+            if (visibility !== 'all') {
+                url += `&visibility=${visibility}`;
+            }
+            
+            fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                repoList.innerHTML = '';
+                data.forEach(repo => {
+                    const li = document.createElement('li');
+                    li.textContent = repo.name;
+                    li.dataset.name = repo.name;
+                    li.dataset.fullName = repo.full_name;
+                    li.addEventListener('click', () => selectRepository(repo.full_name, repo.name));
+                    repoList.appendChild(li);
+                });
+            })
+            .catch(error => console.error('레포지토리 가져오기 오류:', error));
+        }
+
+        // 레포지토리 선택
+        function selectRepository(fullName, name) {
+            selectedRepo = fullName;
+            currentRepo.textContent = name;
+            currentPath = '';
+            fetchRepoContents();
+            repoContent.classList.remove('hidden');
+            fileEditor.classList.add('hidden');
+        }
+
+        // 레포지토리 내용 가져오기
+        function fetchRepoContents(path = '') {
+            currentPath = path;
+            updatePathNavigation();
+            
+            fetch(`https://api.github.com/repos/${selectedRepo}/contents/${path}`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                fileList.innerHTML = '';
+                
+                if (Array.isArray(data)) {
+                    // 디렉토리 내용 표시
+                    data.sort((a, b) => {
+                        // 디렉토리를 먼저 표시
+                        if (a.type === 'dir' && b.type !== 'dir') return -1;
+                        if (a.type !== 'dir' && b.type === 'dir') return 1;
+                        return a.name.localeCompare(b.name);
+                    });
+                    
+                    data.forEach(item => {
+                        const li = document.createElement('li');
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = item.name;
+                        
+                        li.appendChild(nameSpan);
+                        
+                        if (item.type === 'dir') {
+                            li.addEventListener('click', () => fetchRepoContents(item.path));
+                            nameSpan.textContent = `📁 ${item.name}`;
+                        } else {
+                            const actions = document.createElement('div');
+                            
+                            const editBtn = document.createElement('button');
+                            editBtn.textContent = '편집';
+                            editBtn.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                editFile(item);
+                            });
+                            
+                            actions.appendChild(editBtn);
+                            li.appendChild(actions);
+                            nameSpan.textContent = `📄 ${item.name}`;
+                        }
+                        
+                        fileList.appendChild(li);
+                    });
+                } else {
+                    // 단일 파일 내용 표시
+                    editFile(data);
+                }
+            })
+            .catch(error => console.error('레포지토리 내용 가져오기 오류:', error));
+        }
+
+        // 경로 네비게이션 업데이트
+        function updatePathNavigation() {
+            pathNav.innerHTML = '';
+            
+            const paths = currentPath.split('/').filter(p => p);
+            let currentPathBuild = '';
+            
+            // 루트 디렉토리 링크
+            const rootLink = document.createElement('a');
+            rootLink.textContent = '홈';
+            rootLink.href = '#';
+            rootLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                fetchRepoContents('');
+            });
+            pathNav.appendChild(rootLink);
+            
+            // 각 경로 세그먼트에 대한 링크
+            paths.forEach((path, index) => {
+                pathNav.appendChild(document.createTextNode(' / '));
+                
+                currentPathBuild += (index === 0 ? '' : '/') + path;
+                
+                const pathLink = document.createElement('a');
+                pathLink.textContent = path;
+                pathLink.href = '#';
+                const pathToFetch = currentPathBuild;
+                pathLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    fetchRepoContents(pathToFetch);
+                });
+                
+                pathNav.appendChild(pathLink);
+            });
+        }
+
+        // 파일 편집
+        function editFile(file) {
+            isNewFile = false;
+            showFileEditor();
+            
+            fileName.value = file.name;
+            filePath.textContent = file.path;
+            currentSha = file.sha;
+            deleteFileBtn.style.display = 'inline-block';
+            
+            if (file.content) {
+                // 이미 콘텐츠가 있는 경우
+                const content = atob(file.content);
+                fileContent.value = content;
+                commitMessage.value = `${file.name} 업데이트`;
+            } else {
+                // 콘텐츠를 별도로 가져와야 하는 경우
+                fetch(file.download_url, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                })
+                .then(response => response.text())
+                .then(content => {
+                    fileContent.value = content;
+                    commitMessage.value = `${file.name} 업데이트`;
+                })
+                .catch(error => console.error('파일 내용 가져오기 오류:', error));
+            }
+        }
+
+        // 파일 저장
+        function saveFile() {
+            const newFileName = fileName.value.trim();
+            const content = fileContent.value;
+            const message = commitMessage.value.trim() || '파일 업데이트';
+            
+            if (!newFileName) {
+                alert('파일 이름을 입력하세요.');
+                return;
+            }
+            
+            let path = currentPath ? `${currentPath}/${newFileName}` : newFileName;
+            
+            // 현재 편집 중인 파일의 경로에서 파
+            // 현재 편집 중인 파일의 경로에서 파일명만 변경하는 경우
+            if (!isNewFile && filePath.textContent.split('/').pop() !== newFileName) {
+                path = filePath.textContent.replace(/[^/]+$/, newFileName);
+            } else if (!isNewFile) {
+                path = filePath.textContent;
+            }
+            
+            // Base64로 인코딩
+            const encodedContent = btoa(unescape(encodeURIComponent(content)));
+            
+            const data = {
+                message: message,
+                content: encodedContent,
+                branch: 'main' // 기본 브랜치 이름, 필요에 따라 변경 가능
+            };
+            
+            // 기존 파일 업데이트인 경우 SHA 추가
+            if (!isNewFile) {
+                data.sha = currentSha;
+            }
+            
+            fetch(`https://api.github.com/repos/${selectedRepo}/contents/${path}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP 오류 ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(() => {
+                alert('파일이 저장되었습니다.');
+                fileEditor.classList.add('hidden');
+                repoContent.classList.remove('hidden');
+                fetchRepoContents(currentPath);
+            })
+            .catch(error => {
+                console.error('파일 저장 오류:', error);
+                alert('파일 저장에 실패했습니다: ' + error.message);
+            });
+        }
+
+        // 파일 삭제
+        function deleteFile() {
+            if (!confirm('정말로 이 파일을 삭제하시겠습니까?')) {
+                return;
+            }
+            
+            const path = filePath.textContent;
+            const message = `${path.split('/').pop()} 삭제`;
+            
+            fetch(`https://api.github.com/repos/${selectedRepo}/contents/${path}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    sha: currentSha,
+                    branch: 'main' // 기본 브랜치 이름, 필요에 따라 변경 가능
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP 오류 ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(() => {
+                alert('파일이 삭제되었습니다.');
+                fileEditor.classList.add('hidden');
+                repoContent.classList.remove('hidden');
+                fetchRepoContents(currentPath);
+            })
+            .catch(error => {
+                console.error('파일 삭제 오류:', error);
+                alert('파일 삭제에 실패했습니다: ' + error.message);
+            });
+        }
+
+        // 앱 UI 표시
+        function showApp() {
+            loginSection.classList.add('hidden');
+            appSection.classList.remove('hidden');
+        }
+
+        // 파일 에디터 표시
+        function showFileEditor() {
+            repoContent.classList.add('hidden');
+            fileEditor.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
