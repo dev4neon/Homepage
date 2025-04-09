@@ -5,69 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub 파일 에디터 (Octokit + Hugo)</title>
     <style>
-        /* CSS 스타일 */
         body { font-family: sans-serif; line-height: 1.6; padding: 0px; background-color: #f4f4f4; color: #333; }
         .container {
-            max-width: 900px; /* 최대 너비 유지 */
-            margin: 20px auto; /* 상하 여백 및 중앙 정렬 유지 */
+            max-width: 900px;
+            margin: 20px auto;
         }
 
-        /* --- New Styles for Header --- */
         #header-container {
-            display: flex; /* Enable Flexbox */
-            justify-content: space-between; /* Title left, Button right */
-            align-items: center; /* Vertically align items */
-            margin-bottom: 20px; /* Add space below the header */
-            flex-wrap: wrap; /* Allow wrapping on small screens if needed */
-            gap: 10px; /* Add gap between title and button if they wrap */
-            border-bottom: 1px solid #eee; /* Optional: Add a separator line */
-            padding-bottom: 15px; /* Optional: Add padding below the header content */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
         }
 
         #header-container h1 {
-            margin-bottom: 0; /* Remove default bottom margin from h1 inside flex */
-            margin-right: 15px; /* Add some space between title and button */
-            flex-grow: 1; /* Allow title to take up available space */
-            font-size: 1.8em; /* Adjust size if needed */
-            color: #333; /* Match main color */
+            margin-bottom: 0;
+            margin-right: 15px;
+            flex-grow: 1;
+            font-size: 1.8em;
+            color: #333;
         }
 
         #header-container #logoutButton {
-            /* Reset specific margins potentially inherited or conflicting */
             margin: 0;
-            /* Adjust padding/font-size for the header */
              padding: 8px 15px;
              font-size: 0.9rem;
-             white-space: nowrap; /* Prevent button text from wrapping */
-             flex-shrink: 0; /* Prevent button from shrinking */
-             background-color: #6c757d; /* Keep gray color */
-             /* Align vertically if needed, though align-items should handle it */
-             /* vertical-align: middle; */
+             white-space: nowrap;
+             flex-shrink: 0;
+             background-color: #6c757d;
         }
         #header-container #logoutButton:hover:not(:disabled) {
-             background-color: #5a6268; /* Darker gray on hover */
+             background-color: #5a6268;
         }
-        /* --- End New Header Styles --- */
-
 
         .section {
-            padding: 15px 20px; /* 상하좌우 여백 조정 */
-            margin-bottom: 20px; /* 섹션 간 간격 */
+            padding: 15px 20px;
+            margin-bottom: 20px;
             border: 1px solid #ddd;
             border-radius: 5px;
             background-color: #fff;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* 약간의 그림자 추가 */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        /* Keep h1 style for title, but maybe remove text-align center if header handles alignment */
-        h1 { /* text-align: center; */ margin-bottom: 30px; } /* Center align removed */
+        h1 { margin-bottom: 30px; }
         h2, h3 { color: #0056b3; }
-        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; /* 여백 증가 */ font-size: 1.5em;}
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; font-size: 1.5em;}
         h3 { margin-top: 25px; margin-bottom: 15px; color: #333; font-size: 1.2em; }
         label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
         input[type="text"], input[type="password"], select, textarea {
             width: 100%;
             padding: 12px;
-            margin-bottom: 15px; /* 여백 증가 */
+            margin-bottom: 15px;
             border: 1px solid #ccc;
             border-radius: 4px;
             box-sizing: border-box;
@@ -75,20 +66,19 @@
         }
         textarea { height: 350px; font-family: 'Courier New', Courier, monospace; line-height: 1.5; }
         button {
-            /* General button styles */
             padding: 12px 18px;
             background-color: #007bff;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            margin-right: 8px; /* Keep general right margin */
-            margin-top: 10px; /* Keep general top margin */
+            margin-right: 8px;
+            margin-top: 10px;
             font-size: 1rem;
             transition: background-color 0.2s ease;
-            vertical-align: middle; /* Align buttons vertically */
+            vertical-align: middle;
         }
-        button:hover:not(:disabled) { background-color: #0056b3; } /* :disabled 상태 제외 */
+        button:hover:not(:disabled) { background-color: #0056b3; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
         #fileList ul { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;}
         #fileList li { padding: 10px 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; transition: background-color 0.2s ease;}
@@ -97,10 +87,10 @@
         #fileList li::before { margin-right: 10px; font-size: 1.1em; }
         #fileList li.dir::before { content: '📁'; color: #ffac33; }
         #fileList li.file::before { content: '📄'; color: #6c757d; }
-        #fileList li strong { font-weight: bold; color: #0056b3; } /* 상위 폴더 링크 스타일 */
-        #fileList li em { color: #888; font-style: italic; } /* 로딩, 빈 폴더 메시지 */
+        #fileList li strong { font-weight: bold; color: #0056b3; }
+        #fileList li em { color: #888; font-style: italic; }
         #statusBar { margin-top: 20px; padding: 12px; background-color: #e9ecef; border-radius: 4px; color: #495057; text-align: center; font-size: 0.95em;}
-        .hidden { display: none !important; } /* Use important to ensure override */
+        .hidden { display: none !important; }
         .status-bar-error { color: #721c24 !important; background-color: #f8d7da !important; border: 1px solid #f5c6cb !important; font-weight: bold; }
         .status-bar-success { color: #155724 !important; background-color: #d4edda !important; border: 1px solid #c3e6cb !important; }
         .warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px; margin-bottom: 20px;}
@@ -114,49 +104,38 @@
         label[for="fmTocCheckbox"] { display: inline-block; margin-right: 10px; margin-bottom: 10px; font-weight: normal; }
         input[type="checkbox"] { margin-right: 8px; vertical-align: middle; width: auto; }
 
-        /* Control button containers (used in multiple sections) */
         .controls-container {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
-            gap: 8px; /* Use gap for spacing between items */
+            gap: 8px;
         }
 
-        /* Removed specific repoSection logout button style */
-
-
-        /* Responsive */
         @media (max-width: 600px) {
             .container { margin: 10px; }
-             /* --- Responsive Header Adjustments --- */
              #header-container {
-                 /* Could change justification or direction if needed */
-                 /* justify-content: center; */
-                 flex-direction: column; /* Stack title and button */
-                 align-items: flex-start; /* Align items to the start */
+                 flex-direction: column;
+                 align-items: flex-start;
                  padding-bottom: 10px;
              }
              #header-container h1 {
-                 font-size: 1.6em; /* Adjust title size */
-                 margin-right: 0; /* No right margin needed when stacked */
-                 margin-bottom: 10px; /* Add space below title when stacked */
+                 font-size: 1.6em;
+                 margin-right: 0;
+                 margin-bottom: 10px;
              }
               #header-container #logoutButton {
-                   width: 100%; /* Make button full width when stacked */
-                   margin-top: 5px; /* Add space if stacking */
+                   width: 100%;
+                   margin-top: 5px;
                    text-align: center;
               }
-             /* --- End Responsive Header Adjustments --- */
 
             .section { padding: 15px; }
-            /* h1 { font-size: 1.8em; margin-bottom: 20px;} */ /* Already adjusted in header styles */
             h2 { font-size: 1.3em; }
             h3 { font-size: 1.1em; }
 
-            /* General button stacking in controls containers */
             .controls-container {
-                flex-direction: column; /* Stack buttons in control sections */
-                align-items: stretch; /* Make buttons fill width */
+                flex-direction: column;
+                align-items: stretch;
             }
             .controls-container button {
                  width: 100%;
@@ -164,31 +143,24 @@
                  margin-bottom: 10px;
             }
             .controls-container button:last-child {
-                margin-bottom: 0; /* Remove margin from last stacked button */
+                margin-bottom: 0;
             }
-
 
             input[type="text"], input[type="password"], select, textarea { padding: 10px; }
             #fileList ul { max-height: 250px; }
         }
-
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- New Header Container -->
     <div id="header-container">
         <h1>GitHub 파일 에디터 (Octokit + Hugo)</h1>
-        <!-- Moved Logout Button - initially hidden -->
         <button id="logoutButton" class="hidden">로그아웃</button>
     </div>
-    <!-- End New Header Container -->
 
-    <!-- 1. Login Section -->
     <div id="loginSection" class="section">
         <h2>1. GitHub 로그인 (Octokit 사용)</h2>
-        <!-- Updated Warning -->
         <div class="warning">
             <strong>주의:</strong> Personal Access Token (PAT)을 브라우저에 저장하거나 입력하는 것은 보안상 위험할 수 있습니다. 반드시 신뢰할 수 있는 환경에서 개인적인 용도로만 사용하고, 토큰이 외부에 노출되지 않도록 각별히 주의하세요. <strong>이 토큰은 브라우저를 닫아도 유지될 수 있으므로 (`localStorage` 사용), 사용 후에는 반드시 '로그아웃 하기' 버튼을 누르거나 브라우저의 저장된 사이트 데이터를 직접 삭제하세요.</strong> 토큰에는 <strong>'repo'</strong> 권한이 필요합니다.
         </div>
@@ -196,22 +168,18 @@
         <input type="password" id="patInput" placeholder="GitHub PAT 입력 (repo 권한 필요)">
         <div class="controls-container">
              <button id="loginButton">로그인</button>
-             <!-- Logout button is no longer here -->
         </div>
     </div>
 
-    <!-- 2. Repository Selection -->
     <div id="repoSection" class="section hidden">
         <h2>2. 저장소 선택</h2>
         <label for="repoSelect">저장소:</label>
         <select id="repoSelect"></select>
         <div class="controls-container">
             <button id="loadRepoButton" disabled>파일 목록 불러오기</button>
-            <!-- Logout button is no longer here -->
         </div>
     </div>
 
-    <!-- 3. File Browser -->
     <div id="fileBrowserSection" class="section hidden">
         <h2>3. 파일 탐색기</h2>
         <div><strong>현재 저장소:</strong> <span id="currentRepo"></span></div>
@@ -219,12 +187,11 @@
         <div id="fileList">
             <ul></ul>
         </div>
-         <div class="controls-container"> <!-- Wrap button in container for consistency -->
+         <div class="controls-container">
             <button id="createNewFileButton">새 파일 만들기 (Hugo)</button>
         </div>
     </div>
 
-    <!-- 4. File Editor -->
     <div id="editorSection" class="section hidden">
         <h2>4. 파일 편집기 / Front Matter (TOML)</h2>
         <input type="hidden" id="currentFileSha">
@@ -266,36 +233,31 @@
         <label for="commitMessageInput">커밋 메시지 (자동 생성/편집 가능):</label>
         <input type="text" id="commitMessageInput" placeholder="자동 생성 또는 직접 입력">
 
-        <div class="controls-container"> <!-- Container for editor buttons -->
+        <div class="controls-container">
             <button id="saveFileButton">저장 (생성/수정)</button>
             <button id="deleteFileButton" style="background-color: #dc3545;">삭제</button>
             <button id="cancelEditButton" style="background-color: #6c757d;">취소</button>
         </div>
     </div>
 
-
-    <!-- Status Bar -->
     <div id="statusBar">상태: 대기 중...</div>
 
 </div>
 
 <script type="module">
-    // Import Octokit via CDN (esm.sh)
     import { Octokit } from "https://esm.sh/octokit";
 
-    // --- Global Variables ---
     let octokit = null;
     let selectedOwner = null;
     let selectedRepo = null;
     let currentPath = '';
     let currentFiles = [];
-    let currentBranch = 'main'; // Or your default branch
-    const PAT_STORAGE_KEY = 'githubPat'; // Use localStorage
+    let currentBranch = 'main';
+    const PAT_STORAGE_KEY = 'githubPat';
 
-    // --- DOM Elements ---
     const patInput = document.getElementById('patInput');
     const loginButton = document.getElementById('loginButton');
-    const logoutButton = document.getElementById('logoutButton'); // Reference remains valid
+    const logoutButton = document.getElementById('logoutButton');
     const repoSelect = document.getElementById('repoSelect');
     const loadRepoButton = document.getElementById('loadRepoButton');
     const fileListUl = document.querySelector('#fileList ul');
@@ -323,18 +285,9 @@
     const fileBrowserSection = document.getElementById('fileBrowserSection');
     const editorSection = document.getElementById('editorSection');
 
-
-    // --- Helper Functions ---
-     /**
-     * Updates the status bar message and style.
-     * @param {string} message - The message to display.
-     * @param {boolean} [isError=false] - True if the message is an error.
-     * @param {boolean} [isSuccess=false] - True if the message is a success indicator.
-     */
      function updateStatus(message, isError = false, isSuccess = false) {
         statusBar.textContent = `상태: ${message}`;
-        statusBar.className = ''; // Reset classes first
-        statusBar.classList.add('status-bar'); // Add base class
+        statusBar.className = 'status-bar';
         if (isError) {
             statusBar.classList.add('status-bar-error');
         } else if (isSuccess) {
@@ -343,10 +296,6 @@
         console[isError ? 'error' : 'log'](`Status Update: ${message}`);
     }
 
-    /**
-     * Shows the specified section and hides others.
-     * @param {HTMLElement | null} sectionToShow - The section element to show, or null to hide all.
-     */
     function showSection(sectionToShow) {
         [loginSection, repoSection, fileBrowserSection, editorSection].forEach(section => {
             if (section) section.classList.add('hidden');
@@ -356,15 +305,8 @@
         }
     }
 
-    /**
-     * Encodes a string to Base64, supporting Unicode characters.
-     * @param {string} str - The string to encode.
-     * @returns {string} The Base64 encoded string.
-     * @throws {Error} If encoding fails.
-     */
     function b64EncodeUnicode(str) {
         try {
-            // Use TextEncoder to get UTF-8 bytes, then convert to binary string for btoa
             const bytes = new TextEncoder().encode(str);
             let binary = '';
             for (let i = 0; i < bytes.length; i++) {
@@ -378,12 +320,6 @@
         }
     }
 
-   /**
-     * Decodes a Base64 string, supporting Unicode characters (UTF-8).
-     * @param {string} str - The Base64 encoded string.
-     * @returns {string} The decoded string.
-     * @throws {Error} If decoding fails or results in invalid UTF-8.
-     */
     function b64DecodeUnicode(str) {
         try {
             const binary_string = atob(str);
@@ -391,100 +327,77 @@
             for (let i = 0; i < binary_string.length; i++) {
                 bytes[i] = binary_string.charCodeAt(i);
             }
-            // Use TextDecoder with fatal option to catch invalid UTF-8 sequences
             return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
         } catch (e) {
-            // Handle potential errors from atob (invalid base64) or TextDecoder (invalid UTF-8)
             console.error("Base64/UTF-8 디코딩 실패:", e);
             updateStatus('Base64 또는 UTF-8 디코딩 중 오류 발생. 파일 내용이 손상되었거나 UTF-8 인코딩이 아닐 수 있습니다.', true);
             throw new Error("Base64/UTF-8 디코딩 실패: " + e.message);
         }
     }
 
-
-    // --- Hugo Front Matter Parsing/Formatting ---
-     /**
-     * Parses Hugo TOML front matter and separates it from the body content.
-     * Handles basic string, boolean, and array (tags, categories) types.
-     * @param {string} content - The full file content.
-     * @returns {object} An object containing parsed front matter fields and the body content.
-     */
      function parseFrontMatter(content) {
         const fm = {
             title: '', author: '', date: '', description: '',
-            tags: [], categories: [], toc: undefined, // Use undefined to distinguish from explicit false
-            body: content // Default body is the whole content if no FM found
+            tags: [], categories: [], toc: undefined, body: content
         };
-        // Regex to find TOML block (+++ ... +++) and capture FM block and body
         const fmRegex = /^\+\+\+\s*([\s\S]*?)\s*\+\+\+([\s\S]*)/;
         const match = content.match(fmRegex);
 
         if (match && match[1] && match[2] !== undefined) {
-            // Found FM block
             const frontMatterBlock = match[1].trim();
-            fm.body = match[2].trimStart(); // Keep leading whitespace in body if desired
+            fm.body = match[2].trimStart();
             const lines = frontMatterBlock.split('\n');
             let currentKey = null;
-            let accumulatingArrayContent = null; // For multi-line arrays
+            let accumulatingArrayContent = null;
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 const trimmedLine = line.trim();
 
-                // Skip empty lines and comments
                 if (!trimmedLine || trimmedLine.startsWith('#')) continue;
 
-                // Continue accumulating multi-line array content
                 if (accumulatingArrayContent !== null) {
-                    accumulatingArrayContent += "\n" + line; // Re-add newline for parsing context if needed
-                    if (line.includes(']')) { // End of multi-line array detected
+                    accumulatingArrayContent += "\n" + line;
+                    if (line.includes(']')) {
                         try {
-                            // Find the full array string from '[' to ']'
                             const startIndex = accumulatingArrayContent.indexOf('[');
                             const endIndex = accumulatingArrayContent.lastIndexOf(']');
                             if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
                                 let arrayString = accumulatingArrayContent.substring(startIndex + 1, endIndex).trim();
-                                // Parse the items inside the array string
                                 let values = [];
                                 if (arrayString) {
-                                    // Split by comma, trim, filter comments/empty, remove quotes
                                     values = arrayString.split(',')
                                         .map(item => item.trim())
-                                        .filter(item => item && !item.startsWith('#')) // Filter out comments within array lines
+                                        .filter(item => item && !item.startsWith('#'))
                                         .map(item => {
                                             if (item.startsWith('"') && item.endsWith('"')) return item.substring(1, item.length - 1).replace(/\\"/g, '"');
                                             if (item.startsWith("'") && item.endsWith("'")) return item.substring(1, item.length - 1).replace(/\\'/g, "'");
-                                            return item; // Return as is if not quoted
+                                            return item;
                                         });
                                 }
                                 if (currentKey === 'tags' || currentKey === 'categories') {
                                     fm[currentKey] = values;
                                 }
                             } else {
-                                // This could happen if brackets are mismatched or nested incorrectly
                                 throw new Error("Invalid or mismatched closing bracket ']'");
                             }
                         } catch (e) {
                             console.error(`Error parsing accumulated multi-line array for key ${currentKey}:`, accumulatingArrayContent, e);
                             updateStatus(`Front matter multi-line 배열 구문 분석 중 오류 발생 (${currentKey}): ${e.message}`, true);
-                             // Reset to empty array on error
                             if (currentKey && (currentKey === 'tags' || currentKey === 'categories')) fm[currentKey] = [];
                         } finally {
-                            accumulatingArrayContent = null; // Reset accumulator
-                            currentKey = null; // Reset current key
+                            accumulatingArrayContent = null;
+                            currentKey = null;
                         }
                     }
-                    // If ']' not found yet, continue accumulating on next iteration
-                } else { // Not currently accumulating an array
-                    // Look for 'key = value'
+                } else {
                     const eqIndex = trimmedLine.indexOf('=');
                     if (eqIndex > 0) {
                         const key = trimmedLine.substring(0, eqIndex).trim();
                         let valuePart = trimmedLine.substring(eqIndex + 1).trim();
 
-                        // Handle arrays (single line or start of multi-line)
                         if ((key === 'tags' || key === 'categories') && valuePart.startsWith('[')) {
-                             if (valuePart.includes(']') && valuePart.lastIndexOf(']') > valuePart.indexOf('[')) { // Single-line array
+                             if (valuePart.includes(']') && valuePart.lastIndexOf(']') > valuePart.indexOf('[')) {
                                 try {
                                     const startIndex = valuePart.indexOf('[');
                                     const endIndex = valuePart.lastIndexOf(']');
@@ -504,203 +417,142 @@
                                 } catch(e) {
                                     console.error(`Error parsing single-line array for key ${key}:`, valuePart, e);
                                     updateStatus(`Front matter 배열 구문 분석 중 오류 발생 (${key}): ${e.message}`, true);
-                                    fm[key] = []; // Reset on error
+                                    fm[key] = [];
                                 }
-                            } else { // Start of a multi-line array
+                            } else {
                                 currentKey = key;
-                                accumulatingArrayContent = valuePart; // Start accumulating
+                                accumulatingArrayContent = valuePart;
                             }
-                        } else { // Handle simple values (string, boolean)
+                        } else {
                             try {
                                 let parsedValue = valuePart;
-                                // Remove surrounding quotes and unescape internal quotes
                                 if (parsedValue.startsWith('"') && parsedValue.endsWith('"')) {
                                     parsedValue = parsedValue.substring(1, parsedValue.length - 1).replace(/\\"/g, '"');
                                 } else if (parsedValue.startsWith("'") && parsedValue.endsWith("'")) {
                                      parsedValue = parsedValue.substring(1, parsedValue.length - 1).replace(/\\'/g, "'");
-                                } else if (parsedValue === 'true') { // Parse boolean true
+                                } else if (parsedValue === 'true') {
                                     parsedValue = true;
-                                } else if (parsedValue === 'false') { // Parse boolean false
+                                } else if (parsedValue === 'false') {
                                     parsedValue = false;
                                 }
-                                // Assign to known fm fields
                                 if (['title', 'author', 'date', 'description', 'toc'].includes(key)) {
                                      if (key === 'toc') {
-                                         // Only assign if it's explicitly true or false
                                          if (typeof parsedValue === 'boolean') {
                                              fm[key] = parsedValue;
                                          } else {
-                                             // Warn if toc has a non-boolean value, maybe set to default?
                                              console.warn(`FM parsing: Expected boolean for 'toc', got:`, parsedValue);
                                          }
                                      } else {
-                                        // Assign others as strings (even if originally numbers, keep as string)
                                         fm[key] = String(parsedValue);
                                      }
                                 }
-                                // Ignore unknown keys or handle them if needed
                             } catch (parseError) {
                                  console.error(`Error parsing simple front matter line: "${line}"`, parseError);
                                  updateStatus(`Front matter 구문 분석 중 오류 발생: ${line}`, true);
                             }
                         }
                     } else {
-                        // Line doesn't contain '=', might be part of a multi-line string or invalid
                         console.warn(`Invalid front matter line (no '=' found, ignoring): "${trimmedLine}"`);
                     }
                 }
-            } // End of line loop
+            }
 
-            // Check if we ended while still accumulating an array (means ']' was missing)
             if (accumulatingArrayContent !== null) {
                 console.error(`Front matter parsing ended unexpectedly inside an unclosed array for key: ${currentKey}`);
                 updateStatus(`Front matter 오류: ${currentKey} 배열이 닫히지 않았습니다.`, true);
-                // Reset the incomplete array
                 if (currentKey && (currentKey === 'tags' || currentKey === 'categories')) {
                      fm[currentKey] = [];
                 }
             }
         } else {
-            // No match for FM regex, treat entire content as body
-            // fm.body is already set to content by default
             console.log("No TOML front matter detected or block is malformed.");
         }
         return fm;
     }
 
-
-    /**
-     * Formats the front matter data object back into a TOML string.
-     * Ensures strings are properly quoted and escaped.
-     * @param {object} fmData - The front matter data object from the form.
-     * @returns {string} The formatted TOML front matter string, ready to prepend to the body.
-     */
     function formatFrontMatter(fmData) {
         let fmString = '+++\n';
-        // Helper to format TOML strings (quote and escape)
         const formatTomlString = (str) => `"${String(str).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-        // Helper to format TOML arrays
         const formatTomlArray = (arr) => `[${arr.map(formatTomlString).join(', ')}]`;
 
-        // Add fields only if they have a value
         if (fmData.title) fmString += `title = ${formatTomlString(fmData.title)}\n`;
-        if (fmData.date) fmString += `date = ${formatTomlString(fmData.date)}\n`; // Dates are typically strings in TOML FM
+        if (fmData.date) fmString += `date = ${formatTomlString(fmData.date)}\n`;
         if (fmData.author) fmString += `author = ${formatTomlString(fmData.author)}\n`;
         if (fmData.description) fmString += `description = ${formatTomlString(fmData.description)}\n`;
         if (fmData.categories && fmData.categories.length > 0) fmString += `categories = ${formatTomlArray(fmData.categories)}\n`;
         if (fmData.tags && fmData.tags.length > 0) fmString += `tags = ${formatTomlArray(fmData.tags)}\n`;
-
-        // Only include 'toc' if it's explicitly set to true
         if (fmData.toc === true) {
             fmString += `toc = true\n`;
         }
-        // Note: If toc is false or undefined, it's omitted, which is Hugo's default behavior (usually no TOC).
-
-        fmString += '+++\n\n'; // Closing delimiter and blank line separator
+        fmString += '+++\n\n';
         return fmString;
     }
 
-
-    // --- UI Helper Functions ---
-    /**
-     * Generates a Hugo-friendly filename from a title string.
-     * Replaces spaces with hyphens, removes special characters, converts to lowercase.
-     * @param {string} title - The input title.
-     * @returns {string} The generated filename with .md extension.
-     */
      function generateHugoFilename(title) {
         if (!title || !title.trim()) return 'untitled.md';
-        // Remove leading/trailing spaces, convert to lowercase
         const cleanedTitle = title.trim().toLowerCase()
-            // Replace problematic characters (adjust list as needed) with nothing
             .replace(/[\\/:\?\*"<>\|#;\$'\{\}\+=~@%^&\(\)\[\]\.!,`]/g, '')
-            // Replace one or more whitespace characters with a single hyphen
             .replace(/\s+/g, '-')
-            // Remove leading/trailing hyphens that might result from replacements
             .replace(/^-+|-+$/g, '');
-        // If cleaning resulted in an empty string, default to 'untitled'
         return (cleanedTitle || 'untitled') + '.md';
     }
 
-    /**
-     * Updates the commit message input field based on the current filename and operation type.
-     */
     function updateCommitMessage() {
         const filename = fileNameInput.value.trim();
-        const isUpdate = !!currentFileShaInput.value; // True if editing an existing file (has SHA)
+        const isUpdate = !!currentFileShaInput.value;
         if (filename) {
-             // Suggest a default commit message
              commitMessageInput.value = isUpdate ? `Update content for ${filename}` : `Create ${filename}`;
-             // Update placeholder to show the example
              commitMessageInput.placeholder = `예: ${commitMessageInput.value}`;
         } else {
-             // Clear if no filename
              commitMessageInput.value = '';
              commitMessageInput.placeholder = '자동 생성 또는 직접 입력';
         }
     }
 
-    /**
-     * Generates and updates the breadcrumb navigation based on `currentPath`.
-     */
     function updateBreadcrumb() {
-        currentPathBreadcrumb.innerHTML = ''; // Clear previous breadcrumb
-        // Add root link
+        currentPathBreadcrumb.innerHTML = '';
         const rootLink = document.createElement('a');
         rootLink.href = '#';
         rootLink.textContent = 'root';
         rootLink.onclick = (e) => { e.preventDefault(); fetchContents(''); };
         currentPathBreadcrumb.appendChild(rootLink);
 
-        const pathParts = currentPath.split('/').filter(p => p); // Split path and remove empty parts
+        const pathParts = currentPath.split('/').filter(p => p);
         let accumulatedPath = '';
         pathParts.forEach((part, index) => {
-            // Build the path incrementally for each part's link
             accumulatedPath += (index > 0 ? '/' : '') + part;
-            // Add separator
             const pathSeparator = document.createElement('span');
             pathSeparator.textContent = ' / ';
             currentPathBreadcrumb.appendChild(pathSeparator);
 
-            // Add link for the path part
             const partLink = document.createElement('a');
             partLink.href = '#';
             partLink.textContent = part;
-            // Need to capture the path for this link's specific scope
             const currentAccumulatedPath = accumulatedPath;
             partLink.onclick = (e) => { e.preventDefault(); fetchContents(currentAccumulatedPath); };
             currentPathBreadcrumb.appendChild(partLink);
         });
 
-        // Make the last part of the breadcrumb (current directory) non-clickable bold text
         if (pathParts.length > 0) {
-            const lastPartElement = currentPathBreadcrumb.lastChild; // Get the last element (should be the link)
+            const lastPartElement = currentPathBreadcrumb.lastChild;
             if (lastPartElement && lastPartElement.tagName === 'A') {
-                // Replace the last link with strong text
                 const currentPartStrong = document.createElement('strong');
                 currentPartStrong.textContent = lastPartElement.textContent;
                 currentPathBreadcrumb.replaceChild(currentPartStrong, lastPartElement);
             }
         } else {
-            // If at root, make 'root' bold instead of a link
-             rootLink.outerHTML = '<strong>root</strong>'; // Replace the root link element
+             rootLink.outerHTML = '<strong>root</strong>';
         }
     }
 
-    /**
-     * Adds a '..' (Parent Directory) link to the top of the file list if not at root.
-     * @param {string} currentDirPath - The current directory path being listed.
-     */
     function addParentDirectoryLink(currentDirPath) {
-         if (currentDirPath && currentDirPath !== '') { // Only add if not at the root
-             // Calculate parent path
-             const parentPath = currentDirPath.includes('/') ? currentDirPath.substring(0, currentDirPath.lastIndexOf('/')) : ''; // Go to root if it's a top-level dir
+         if (currentDirPath && currentDirPath !== '') {
+             const parentPath = currentDirPath.includes('/') ? currentDirPath.substring(0, currentDirPath.lastIndexOf('/')) : '';
              const li = document.createElement('li');
-             li.innerHTML = '<strong>⬆️ .. (상위 폴더)</strong>'; // Use bold or specific class
+             li.innerHTML = '<strong>⬆️ .. (상위 폴더)</strong>';
              li.style.cursor = 'pointer';
              li.title = `상위 폴더로 이동: /${parentPath}`;
              li.onclick = () => fetchContents(parentPath);
-             // Add it to the beginning of the list
              if (fileListUl.firstChild) {
                  fileListUl.insertBefore(li, fileListUl.firstChild);
              } else {
@@ -709,9 +561,6 @@
          }
     }
 
-    /**
-     * Clears all fields in the editor form and resets related state variables.
-     */
      function clearEditorFields() {
         fileNameInput.value = '';
         fmTitleInput.value = '';
@@ -724,39 +573,21 @@
         fileContentInput.value = '';
         commitMessageInput.value = '';
         commitMessageInput.placeholder = '자동 생성 또는 직접 입력';
-        currentFileShaInput.value = '';   // Clear SHA (indicates new file or no file selected)
-        currentFilePathInput.value = ''; // Clear path
-        // Disable buttons that require a file context
+        currentFileShaInput.value = '';
+        currentFilePathInput.value = '';
         saveFileButton.disabled = true;
-        saveFileButton.textContent = '저장 (생성/수정)'; // Reset text
+        saveFileButton.textContent = '저장 (생성/수정)';
         deleteFileButton.disabled = true;
-        cancelEditButton.disabled = true; // Usually enabled when editor shown, but good practice to reset
+        cancelEditButton.disabled = true;
     }
 
-
-    // --- Logout Function ---
-    /**
-     * Handles the logout process: clears stored PAT, resets Octokit instance,
-     * and reloads the page to ensure a clean state.
-     */
     function handleLogout() {
         console.log("Logging out: Clearing PAT and reloading...");
-        localStorage.removeItem(PAT_STORAGE_KEY); // Clear PAT from storage
-        octokit = null; // Clear the Octokit instance
-        // No need to explicitly hide logoutButton here, as the page reload
-        // will reset it to its initial hidden state from the HTML.
+        localStorage.removeItem(PAT_STORAGE_KEY);
+        octokit = null;
         location.reload();
     }
 
-
-    // --- Core Authentication and Repo Loading ---
-    /**
-     * Attempts to authenticate with GitHub using the provided PAT, fetches user repositories,
-     * populates the repository dropdown, and updates the UI. Stores PAT in localStorage on success.
-     * Controls visibility of the global logout button.
-     * @param {string} token - The GitHub Personal Access Token.
-     * @param {boolean} [isAutoLogin=false] - Indicates if this is an automatic attempt on page load using stored PAT.
-     */
      async function authenticateAndLoadRepos(token, isAutoLogin = false) {
         if (!token) {
             console.error("Authentication attempt with no token provided.");
@@ -769,12 +600,10 @@
             return;
         }
 
-        // --- UI updates during login ---
         patInput.disabled = true;
         loginButton.disabled = true;
         loginButton.textContent = '로딩 중...';
-        // Hide logout button during the attempt
-        logoutButton.classList.add('hidden'); // Ensure hidden during login process
+        logoutButton.classList.add('hidden');
         repoSelect.disabled = true;
         loadRepoButton.disabled = true;
 
@@ -782,21 +611,15 @@
             ? '저장된 PAT로 인증 및 저장소 목록 로딩 중...'
             : 'GitHub 인증 및 저장소 목록 로딩 중...';
         updateStatus(statusMsg);
-        let clearToken = false; // Flag for specific errors like 401
+        let clearToken = false;
 
         try {
-            // 1. Initialize Octokit
             octokit = new Octokit({ auth: token });
-
-            // 2. Verify authentication
             const { data: user } = await octokit.rest.users.getAuthenticated();
             console.log("Authenticated successfully as user:", user.login);
 
-            // --- SUCCESSFUL AUTHENTICATION ---
-            // Show the logout button now that authentication is confirmed
-            logoutButton.classList.remove('hidden'); // <<<--- SHOW LOGOUT BUTTON
+            logoutButton.classList.remove('hidden');
 
-            // 3. Fetch repositories
             updateStatus(`사용자 '${user.login}' 인증 완료. 저장소 목록 로딩 중...`);
             const repos = await octokit.paginate(octokit.rest.repos.listForAuthenticatedUser, {
                 affiliation: 'owner,collaborator',
@@ -804,7 +627,6 @@
                 sort: 'updated',
             });
 
-            // 4. Populate repository select
             repoSelect.innerHTML = '<option value="">-- 저장소 선택 --</option>';
 
             if (repos && repos.length > 0) {
@@ -814,37 +636,32 @@
                     option.textContent = `${repo.full_name} (${repo.private ? 'Private' : 'Public'})`;
                     repoSelect.appendChild(option);
                 });
-                localStorage.setItem(PAT_STORAGE_KEY, token); // Store PAT on success
+                localStorage.setItem(PAT_STORAGE_KEY, token);
 
-                // --- UI updates after successful login and repo load ---
                 showSection(repoSection);
                 repoSelect.disabled = false;
                 if (repoSelect.options.length > 1) {
                     repoSelect.selectedIndex = 1;
                     loadRepoButton.disabled = false;
-                    updateStatus(`${repos.length}개의 접근 가능한 저장소 로드 완료. 첫번째 저장소가 자동 선택되었습니다.`, false, true);
+                    updateStatus(`${repos.length}개의 접근 가능한 저장소 로드 완료. 저장소를 선택하세요.`, false, true);
                 } else {
                     loadRepoButton.disabled = true;
                     updateStatus('접근 가능한 저장소를 찾을 수 없습니다. PAT 권한이나 저장소 유무를 확인하세요.', true);
                 }
-                // Update login section appearance (already authenticated)
                 patInput.value = '********';
                 patInput.disabled = true;
                 loginButton.textContent = '인증 완료';
                 loginButton.disabled = true;
             } else {
-                // User authenticated, but no accessible repositories found
                 updateStatus('인증 성공, 하지만 접근 가능한 저장소가 없습니다. PAT에 `repo` 권한이 있는지, 저장소가 있는지 확인하세요.', true);
-                localStorage.setItem(PAT_STORAGE_KEY, token); // Store PAT even if no repos
+                localStorage.setItem(PAT_STORAGE_KEY, token);
                 showSection(repoSection);
                 repoSelect.disabled = true;
                 loadRepoButton.disabled = true;
-                 // Update login section appearance (already authenticated)
                 patInput.value = '********';
                 patInput.disabled = true;
                 loginButton.textContent = '인증 완료';
                 loginButton.disabled = true;
-                 // Logout button remains visible here because auth was successful
             }
         } catch (error) {
             console.error("Authentication or Repository Fetch Error:", error);
@@ -856,7 +673,7 @@
             } else if (error.status === 403) {
                 errorMsg = `GitHub API 접근 오류 (403): 권한 문제 또는 API 속도 제한일 수 있습니다. 잠시 후 다시 시도하거나 GitHub 설정을 확인하세요.`;
             } else if (error.status === 404) {
-                 errorMsg = `GitHub API 엔드포인트 오류 (404): 사용자 또는 인증 관련 엔드포인트를 찾을 수 없습니다. (드문 경우)`;
+                 errorMsg = `GitHub API 엔드포인트 오류 (404): 사용자 또는 인증 관련 엔드포인트를 찾을 수 없습니다.`;
             } else {
                 errorMsg = `GitHub API 통신 오류 (${error.status || 'Network Error'}): ${error.message}. 인터넷 연결 및 GitHub 상태를 확인하세요.`;
             }
@@ -865,52 +682,34 @@
 
             if (clearToken) { localStorage.removeItem(PAT_STORAGE_KEY); }
             octokit = null;
-             // --- AUTHENTICATION FAILED ---
-             // Ensure logout button is hidden on failure
-             logoutButton.classList.add('hidden'); // <<<--- ENSURE LOGOUT HIDDEN ON ERROR
-            resetToLoginScreen((clearToken || isAutoLogin) ? '' : token); // Reset UI to login
+            logoutButton.classList.add('hidden');
+            resetToLoginScreen((clearToken || isAutoLogin) ? '' : token);
         }
     }
 
-    // --- Function to Reset UI to Logged-Out State (without page reload) ---
-    /**
-     * Resets the UI to the initial login screen state. Hides the global logout button.
-     * @param {string} [tokenToKeepInInput=''] - Optional token to keep in input field.
-     */
     function resetToLoginScreen(tokenToKeepInInput = '') {
-         showSection(loginSection); // Show only the login section
-         // Reset login section controls
+         showSection(loginSection);
          patInput.disabled = false;
          patInput.value = tokenToKeepInInput;
          if (!patInput.value) patInput.placeholder = "GitHub PAT 입력 (repo 권한 필요)";
          loginButton.disabled = false;
-         loginButton.textContent = '로그인하기';
-         // --- Explicitly hide the global logout button when resetting to login ---
-         logoutButton.classList.add('hidden'); // <<<--- HIDE LOGOUT BUTTON
-         // Ensure repo section controls are reset
+         loginButton.textContent = '로그인';
+         logoutButton.classList.add('hidden');
          repoSelect.innerHTML = '';
          repoSelect.disabled = true;
          loadRepoButton.disabled = true;
-         // Ensure file browser/editor buttons are disabled/reset
          createNewFileButton.disabled = true;
-         // Clear potential leftover state variables
          selectedOwner = null;
          selectedRepo = null;
          currentPath = '';
          currentFiles = [];
          if (currentRepoSpan) currentRepoSpan.textContent = '';
-         if (currentPathBreadcrumb) updateBreadcrumb(); // Reset breadcrumb
+         if (currentPathBreadcrumb) updateBreadcrumb();
          if (fileListUl) fileListUl.innerHTML = '';
-         // Important: Ensure Octokit instance is nullified
          octokit = null;
-         // Clear editor fields as well
          clearEditorFields();
     }
 
-
-    // --- Event Handlers ---
-
-    /** Login Button Click Event */
     loginButton.addEventListener('click', () => {
         const tokenFromInput = patInput.value.trim();
         if (!tokenFromInput) {
@@ -921,15 +720,12 @@
         authenticateAndLoadRepos(tokenFromInput, false);
     });
 
-    /** Logout Button Click Event */
     logoutButton.addEventListener('click', handleLogout);
 
-    /** Repository Selection Change Event */
     repoSelect.addEventListener('change', () => {
         loadRepoButton.disabled = repoSelect.value === '';
     });
 
-    /** Load Repository Button Click Event */
     loadRepoButton.addEventListener('click', () => {
         const selectedRepoFullName = repoSelect.value;
         if (!selectedRepoFullName || !selectedRepoFullName.includes('/')) {
@@ -948,15 +744,12 @@
         updateStatus(`'${selectedRepoFullName}' 저장소의 루트 폴더 로딩 중...`);
         repoSelect.disabled = true;
         loadRepoButton.disabled = true;
-        // logoutButton.disabled = true; // No longer disable global logout here
 
         showSection(fileBrowserSection);
         fetchContents('');
     });
 
-    /** Fetch Directory Contents */
     async function fetchContents(path) {
-         // --- Pre-API Call Checks ---
          const token = localStorage.getItem(PAT_STORAGE_KEY);
          if (!token || !octokit) {
              updateStatus("오류: 인증 정보가 없습니다. 로그아웃합니다.", true);
@@ -968,11 +761,9 @@
              showSection(repoSection);
              repoSelect.disabled = false;
              loadRepoButton.disabled = repoSelect.value === '';
-             // logout button state is independent
              return;
          }
 
-        // --- UI Update for Loading State ---
         currentPath = path;
         updateBreadcrumb();
         fileListUl.innerHTML = `<li><em><center>폴더 내용 로딩 중...</center></em></li>`;
@@ -980,14 +771,10 @@
         editorSection.classList.add('hidden');
         createNewFileButton.disabled = true;
         updateStatus(`'${selectedOwner}/${selectedRepo}/${path || 'root'}' 내용 로딩 중...`);
-        // No need to disable repo controls or global logout here usually
 
         try {
-            // --- GitHub API Call ---
             const { data: contents } = await octokit.rest.repos.getContent({
-                owner: selectedOwner, repo: selectedRepo, path: path, ref: currentBranch,
-                 // cache bust
-                // headers: { 'If-None-Match': '' } // More robust cache busting if needed
+                owner: selectedOwner, repo: selectedRepo, path: path, ref: currentBranch
             });
 
             const contentList = Array.isArray(contents) ? contents : [contents];
@@ -998,7 +785,6 @@
                     return a.name.localeCompare(b.name, 'ko', { sensitivity: 'base' });
                 });
 
-            // --- Update File List UI ---
             fileListUl.innerHTML = '';
             addParentDirectoryLink(path);
 
@@ -1036,7 +822,6 @@
              updateStatus(`'${selectedOwner}/${selectedRepo}/${path || 'root'}' 로드 완료.`, false, true);
 
         } catch (error) {
-             // --- Error Handling ---
              console.error("Fetch Contents Error:", error);
              let errorMsg = `폴더 내용 로드 실패 (${path || 'root'}): ${error.message}`;
               if (error.status === 404) errorMsg = `경로 '${path || 'root'}'을(를) 찾을 수 없습니다 (404).`;
@@ -1044,66 +829,57 @@
               else if (error.status === 401) {
                   errorMsg = `GitHub API 인증 오류 (401): PAT가 만료되었거나 유효하지 않습니다. 로그아웃합니다.`;
                   updateStatus(errorMsg, true);
-                  handleLogout(); // Force logout on 401
+                  handleLogout();
                   return;
               }
              updateStatus(errorMsg, true);
-             fileListUl.innerHTML = ''; // Clear loading
-             addParentDirectoryLink(path); // Still show parent link
+             fileListUl.innerHTML = '';
+             addParentDirectoryLink(path);
              const errorLi = document.createElement('li');
              errorLi.className = 'error'; errorLi.style.cursor = 'default';
              errorLi.style.backgroundColor = '#f8d7da'; errorLi.style.color = '#721c24'; errorLi.style.padding = '10px';
              errorLi.textContent = `오류: 폴더 내용을 불러올 수 없습니다. (${error.message})`;
              fileListUl.appendChild(errorLi);
         } finally {
-             // --- Final UI State Update ---
-             if (octokit) { // Check if still authenticated
+             if (octokit) {
                  createNewFileButton.disabled = false;
-                 repoSelect.disabled = false; // Re-enable repo controls if they were disabled
+                 repoSelect.disabled = false;
                  loadRepoButton.disabled = repoSelect.value === '';
-                 // logoutButton state handled by auth functions
              }
              if (fileListUl) fileListUl.style.pointerEvents = 'auto';
         }
     }
 
-
-    /** Fetch File Content for Editing */
     async function fetchFileContent(filePath, fileSha) {
-         // --- Pre-API Call Checks ---
          if (!octokit) { handleLogout(); return; }
          if (!selectedOwner || !selectedRepo) {
              updateStatus("오류: 저장소 정보가 설정되지 않았습니다.", true);
              showSection(repoSection); return;
          }
 
-        // --- UI Update for Loading State ---
         updateStatus(`'${filePath}' 파일 내용 로딩 중...`);
         createNewFileButton.disabled = true;
         if (fileListUl) fileListUl.style.pointerEvents = 'none';
         clearEditorFields();
-        showSection(null); // Hide sections temporarily
+        showSection(null);
 
         try {
-            // --- GitHub API Call ---
              const { data: blobData } = await octokit.rest.git.getBlob({
                 owner: selectedOwner, repo: selectedRepo, file_sha: fileSha
             });
 
-            // --- Validate API Response ---
             if (!blobData || typeof blobData.content === 'undefined' || blobData.encoding !== 'base64' || !blobData.sha) {
                  throw new Error('API 응답 형식이 잘못되었습니다 (Blob).');
             }
-            const sizeLimit = 1 * 1024 * 1024; // 1 MB
+            const sizeLimit = 1 * 1024 * 1024; // 1 MB limit for simple editor
             if (blobData.size > sizeLimit) {
-                 updateStatus(`경고: 파일 크기(${(blobData.size / 1024 / 1024).toFixed(2)} MB)가 큽니다.`, false);
+                 updateStatus(`경고: 파일 크기(${(blobData.size / 1024 / 1024).toFixed(2)} MB)가 커서 로딩/저장이 느릴 수 있습니다.`, false);
+                 // Consider adding a confirmation or disabling editing for very large files
             }
 
-            // --- Decode and Parse Content ---
             const decodedContent = b64DecodeUnicode(blobData.content);
             const parsedData = parseFrontMatter(decodedContent);
 
-            // --- Populate Editor Fields ---
             fileNameInput.value = filePath.substring(filePath.lastIndexOf('/') + 1);
             fmTitleInput.value = parsedData.title || '';
             fmAuthorInput.value = parsedData.author || '';
@@ -1116,7 +892,6 @@
             currentFileShaInput.value = blobData.sha;
             currentFilePathInput.value = filePath;
 
-            // --- Update UI for Editor View ---
             saveFileButton.textContent = '저장 (수정)';
             saveFileButton.disabled = false;
             deleteFileButton.disabled = false;
@@ -1126,7 +901,6 @@
             showSection(editorSection);
 
         } catch (error) {
-            // --- Error Handling ---
             console.error(`Fetch File Content Error (${filePath}):`, error);
             let errorMsg = `파일 내용 로딩 실패 (${filePath}): ${error.message}`;
              if (error.status === 404) errorMsg = `파일 Blob (SHA: ${fileSha})을(를) 찾을 수 없습니다 (404).`;
@@ -1136,31 +910,24 @@
              else if (error.message.includes('Blob is too big')) errorMsg = `GitHub API 오류: 파일이 너무 큽니다.`;
              else if (error.status === 401) {
                   errorMsg = `GitHub API 인증 오류 (401): PAT 만료됨. 로그아웃합니다.`;
-                  updateStatus(errorMsg, true);
-                  handleLogout();
-                  return;
+                  updateStatus(errorMsg, true); handleLogout(); return;
              }
             updateStatus(errorMsg, true);
-            showSection(fileBrowserSection); // Go back to browser on error
+            showSection(fileBrowserSection);
 
         } finally {
-             // --- Final UI State Update ---
              if (octokit) {
                  createNewFileButton.disabled = false;
                  if (fileListUl) fileListUl.style.pointerEvents = 'auto';
-                 // Repo controls re-enabled in fetchContents finally block if needed
              }
         }
     }
 
-    // --- Editor Actions (Create, Save, Delete, Cancel) ---
-
-    /** Create New File Button Click */
      createNewFileButton.addEventListener('click', () => {
         if (!octokit) { handleLogout(); return; }
         clearEditorFields();
 
-        try { // Default Date
+        try {
             const now = new Date();
             const offsetMinutes = now.getTimezoneOffset();
             const offsetSign = offsetMinutes <= 0 ? '+' : '-';
@@ -1184,7 +951,6 @@
         fmTitleInput.focus();
     });
 
-    /** Save File Button Click (Handles both Create and Update) */
     saveFileButton.addEventListener('click', async () => {
         if (!octokit) { handleLogout(); return; }
         if (!selectedOwner || !selectedRepo) {
@@ -1199,7 +965,6 @@
         const originalFullPath = currentFilePathInput.value;
         const isUpdateOperation = !!existingBlobSha && !!originalFullPath;
 
-        // --- Input Validation ---
         const titleValue = fmTitleInput.value.trim();
         if (!titleValue) { updateStatus("오류: Front Matter 'Title'은 필수.", true); fmTitleInput.focus(); return; }
         if (!fileName) {
@@ -1225,7 +990,6 @@
          }
          if (!commitMessage) { updateStatus("오류: 커밋 메시지 필요.", true); commitMessageInput.focus(); return; }
 
-        // --- Prepare File Content ---
         const fmData = {
             title: titleValue, author: fmAuthorInput.value.trim(), date: dateValue,
             description: fmDescriptionInput.value.trim(),
@@ -1237,7 +1001,6 @@
         try { finalContent = formatFrontMatter(fmData) + fileBodyContent; }
         catch (formatError) { updateStatus(`Front Matter 생성 오류: ${formatError.message}`, true); return; }
 
-        // --- Handle Rename ---
         const targetBasePath = currentPath ? currentPath + '/' : '';
         const targetFullPath = targetBasePath + fileName;
         const isRename = isUpdateOperation && (targetFullPath !== originalFullPath);
@@ -1253,11 +1016,9 @@
              updateStatus("파일 이름 변경 확인됨. 새 경로에 생성 중...", false);
         }
 
-        // --- UI Update for Saving State ---
         updateStatus(`'${targetFullPath}' 저장 중...`);
         saveFileButton.disabled = true; cancelEditButton.disabled = true; deleteFileButton.disabled = true;
 
-        // --- Encode Content ---
         let encodedContent;
         try { encodedContent = b64EncodeUnicode(finalContent); }
         catch(encodeError) {
@@ -1268,25 +1029,22 @@
         }
 
         try {
-            // --- GitHub API Call: Create or Update File ---
             const params = { owner: selectedOwner, repo: selectedRepo, path: targetFullPath,
                              message: commitMessage, content: encodedContent, branch: currentBranch };
-            if (isUpdateOperation && !isRename) { params.sha = existingBlobSha; } // Provide SHA for updates only
+            if (isUpdateOperation && !isRename) { params.sha = existingBlobSha; }
 
             const { data: result } = await octokit.rest.repos.createOrUpdateFileContents(params);
 
-            // --- Post-Save Success Actions ---
             const action = isUpdateOperation ? (isRename ? '이름 변경으로 생성' : '수정') : '생성';
             updateStatus(`'${targetFullPath}' ${action} 완료. 커밋 SHA: ${result?.commit?.sha?.substring(0, 7)}`, false, true);
             clearEditorFields(); showSection(fileBrowserSection);
             const refreshPath = targetBasePath.endsWith('/') ? targetBasePath.slice(0, -1) : targetBasePath;
-            fetchContents(refreshPath); // Refresh the directory
+            fetchContents(refreshPath);
             if (isRename) {
                  alert(`파일 '${targetFullPath}' 생성(이름 변경) 성공.\n\n알림: 기존 파일 '${originalFullPath}'은(는) 삭제되지 않았습니다.`);
             }
 
         } catch (error) {
-            // --- Error Handling for API Call ---
             console.error("Save File Error:", error);
             let errorMsg = `파일 저장 실패 (${targetFullPath}): ${error.message}`;
             if (error.status === 409) errorMsg = `파일 저장 충돌 (409): 서버 파일 변경됨. 새로고침 후 재시도.`;
@@ -1298,20 +1056,18 @@
                   updateStatus(errorMsg, true); handleLogout(); return;
              }
             updateStatus(errorMsg, true);
-            // Re-enable buttons on failure
             saveFileButton.disabled = false; cancelEditButton.disabled = false;
-            deleteFileButton.disabled = !(isUpdateOperation && !isRename); // Re-enable delete if it was possible before
+            deleteFileButton.disabled = !(isUpdateOperation && !isRename);
         }
     });
 
-    /** Delete File Button Click */
      deleteFileButton.addEventListener('click', async () => {
          if (!octokit) { handleLogout(); return; }
          if (!selectedOwner || !selectedRepo) {
              updateStatus("오류: 삭제할 저장소가 선택되지 않았습니다.", true); showSection(repoSection); return;
          }
         const filePathToDelete = currentFilePathInput.value;
-        const fileShaToDelete = currentFileShaInput.value; // Blob SHA needed
+        const fileShaToDelete = currentFileShaInput.value;
         const filenameOnly = filePathToDelete ? filePathToDelete.substring(filePathToDelete.lastIndexOf('/') + 1) : '알 수 없는 파일';
 
         if (!filePathToDelete || !fileShaToDelete) { updateStatus("오류: 삭제할 파일 정보 부족.", true); return; }
@@ -1329,19 +1085,16 @@
         saveFileButton.disabled = true; cancelEditButton.disabled = true; deleteFileButton.disabled = true;
 
         try {
-            // --- GitHub API Call: Delete File ---
             await octokit.rest.repos.deleteFile({
                 owner: selectedOwner, repo: selectedRepo, path: filePathToDelete,
                 message: commitMessage, sha: fileShaToDelete, branch: currentBranch
             });
 
-            // --- Post-Delete Success Actions ---
             updateStatus(`'${filePathToDelete}' 삭제 완료.`, false, true);
             clearEditorFields(); showSection(fileBrowserSection);
-            fetchContents(currentPath); // Refresh current directory
+            fetchContents(currentPath);
 
         } catch (error) {
-            // --- Error Handling ---
             console.error("Delete File Error:", error);
             let errorMsg = `파일 삭제 실패 (${filePathToDelete}): ${error.message}`;
              if (error.status === 404) errorMsg = `삭제할 파일 없음 (404) 또는 변경됨 (SHA: ${fileShaToDelete}). 새로고침 후 재시도.`;
@@ -1353,14 +1106,12 @@
                    updateStatus(errorMsg, true); handleLogout(); return;
              }
             updateStatus(errorMsg, true);
-            // Re-enable buttons on failure
-             saveFileButton.disabled = true; // Keep save disabled
+             saveFileButton.disabled = true;
              cancelEditButton.disabled = false;
-             deleteFileButton.disabled = (error.status === 404); // Re-enable only if file might still exist
+             deleteFileButton.disabled = (error.status === 404);
         }
     });
 
-    /** Cancel Button Click */
      cancelEditButton.addEventListener('click', () => {
         if (!octokit) { resetToLoginScreen(); return; }
 
@@ -1373,38 +1124,27 @@
             clearEditorFields();
             updateStatus('편집 작업 취소됨.');
             showSection(fileBrowserSection);
-             // fetchContents(currentPath); // Optional refresh
         } else {
              updateStatus('취소 작업 중단됨.');
         }
     });
 
-    // --- Input Change Handlers ---
-     /** Auto-gen filename/commit msg when Title changes */
      fmTitleInput.addEventListener('input', () => {
          const title = fmTitleInput.value;
-         if (!currentFileShaInput.value || !fileNameInput.value.trim()) { // Only for new files or if filename empty
+         if (!currentFileShaInput.value || !fileNameInput.value.trim()) {
              if (title.trim()) { fileNameInput.value = generateHugoFilename(title); }
          }
          updateCommitMessage();
     });
 
-    /** Update commit msg if filename is manually changed */
     fileNameInput.addEventListener('input', () => {
          updateCommitMessage();
     });
 
-
-    // --- Initial State Setup ---
-    /**
-     * Initializes the application on page load. Checks for stored PAT and attempts auto-login.
-     * Manages initial visibility of the global logout button.
-     */
     function initializeApp() {
         console.log("Initializing GitHub Editor...");
         clearEditorFields();
-        // Ensure logout is hidden on initial load before checking PAT
-        logoutButton.classList.add('hidden'); // <<<--- ENSURE HIDDEN INITIALLY
+        logoutButton.classList.add('hidden');
 
         const storedPat = localStorage.getItem(PAT_STORAGE_KEY);
 
@@ -1414,31 +1154,24 @@
             patInput.disabled = true;
             loginButton.disabled = true;
             loginButton.textContent = '자동 로그인 중...';
-            // logoutButton remains hidden until authenticateAndLoadRepos confirms auth
             authenticateAndLoadRepos(storedPat, true);
         } else {
             console.log("No stored PAT found. Displaying login screen.");
-            resetToLoginScreen(); // resetToLoginScreen ensures logout button is hidden
+            resetToLoginScreen();
             updateStatus('시작: GitHub Personal Access Token (PAT)를 입력하고 로그인하세요.');
         }
     }
 
-    // --- Storage Event Listener for Multi-Tab Logout Synchronization ---
-    /**
-     * Listens for localStorage changes to sync logout across tabs.
-     */
     window.addEventListener('storage', (event) => {
         if (event.key === PAT_STORAGE_KEY) {
-            // If PAT removed elsewhere AND we are currently logged in
             if (event.newValue === null && octokit) {
                 console.log('Logout detected from another tab via storage event.');
                 updateStatus('다른 탭 또는 창에서 로그아웃되었습니다. 이 창도 로그아웃됩니다.', false);
-                 handleLogout(); // Reloads, naturally hides button
+                 handleLogout();
             }
         }
     });
 
-    // --- Run Initialization ---
     initializeApp();
 
 </script>
