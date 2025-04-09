@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub 파일 에디터 (Octokit + Hugo) - Tokyo Night</title>
+
+    <!-- TUI Editor CSS -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+
+    <style>
+        /* Tokyo Night Palette (Inspired by Risotto Theme) */
+        :root {
+            --bg: #1a1b26;          /* Background */
+            --bg-alt: #24283b;      /* Slightly lighter background (sections, inputs) */
+            --bg-hover: #292e42;    /* Hover background, Code Block Background */
+            --fg: #c0caf5;          /* Foreground / Default Text */
+            --fg-dim: #a9b1d6;      /* Slightly dimmer text */
+            --grey: #565f89;        /* Comments, Dim UI elements */
+            --border: #414868;      /* Borders, Separators */
+
+            --blue: #7aa2f7;        /* Primary Accent (Buttons, Links, h2) */
+            --cyan: #7dcfff;        /* Secondary Accent (File icons?) */
+            --purple: #bb9af7;      /* Tertiary Accent */
+            --green: #9ece6a;       /* Success */
+            --orange: #ff9e64;      /* Warnings, Folder icons */
+            --red: #f7768e;         /* Errors, Delete button */
+            --yellow: #e0af68;      /* Optional accent */
+
+            --button-fg: #1f2335;   /* Text on buttons for contrast */
+        }
+
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            padding: 0px;
+            background-color: var(--bg);
+            color: var(--fg);
+            margin: 0; /* Ensure no default margin */
+        }
+        .container {
+            max-width: 900px;
+            margin: 20px auto; /* Add some margin */
+            padding: 0 10px; /* Add horizontal padding */
+        }
+
+        #header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px; /* Increased margin */
+            flex-wrap: wrap;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+            padding-left: 10px; /* Match container padding */
+            padding-right: 10px;
+        }
+
+        #header-container h1 {
+            margin-bottom: 0;
+            margin-right: 15px;
+            flex-grow: 1;
+            font-size: 1.8em;
+            color: var(--fg); /* Main text color */
+        }
+
+        #header-container #logoutButton {
+             margin: 0;
+             padding: 8px 15px;
+             font-size: 0.9rem;
+             white-space: nowrap;
+             flex-shrink: 0;
+             background-color: var(--grey); /* Dimmer button for logout */
+             color: var(--fg);
+        }
+        #header-container #logoutButton:hover:not(:disabled) {
+             background-color: var(--border); /* Slightly lighter dim */
+        }
+
+        .section {
+            padding: 20px; /* Increased padding */
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background-color: var(--bg-alt); /* Section background */
+            box-shadow: none; /* Remove shadow, use border in dark mode */
+        }
+        h1 { margin-bottom: 30px; color: var(--fg); }
+        h2, h3 { color: var(--blue); } /* Use primary accent for h2 */
+        h2 {
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        h3 {
+            margin-top: 25px;
+            margin-bottom: 15px;
+            color: var(--purple); /* Use tertiary accent for h3 */
+            font-size: 1.2em;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--fg-dim); /* Slightly dimmer text for labels */
+        }
+        input[type="text"], input[type="password"], select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            background-color: var(--bg); /* Darker input background */
+            color: var(--fg); /* Light text */
+        }
+        input::placeholder, textarea::placeholder {
+            color: var(--grey); /* Dim placeholder text */
+            opacity: 1; /* Firefox */
+        }
+
+        button {
+            padding: 12px 18px;
+            background-color: var(--blue); /* Primary accent */
+            color: var(--button-fg); /* Dark text for contrast on blue */
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 8px;
+            margin-top: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background-color 0.2s ease;
+            vertical-align: middle;
+        }
+        button:hover:not(:disabled) {
+            background-color: #5d87d7; /* Slightly darker blue */
+        }
+        /* *** MODIFIED: Removed cursor: not-allowed; *** */
+        button:disabled {
+            background-color: var(--border); /* Muted background */
+            color: var(--grey); /* Muted text */
+            /* cursor: not-allowed; */ /* Removed this line */
+        }
+        #fileList ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background-color: var(--bg); /* Match input background */
+        }
+        #fileList li {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s ease;
+            color: var(--fg-dim); /* Dimmer text for file list items */
+        }
+        #fileList li:last-child { border-bottom: none; }
+        #fileList li:hover { background-color: var(--bg-hover); } /* Hover effect */
+        #fileList li::before { margin-right: 10px; font-size: 1.1em; }
+        #fileList li.dir::before { content: '📁'; color: var(--orange); } /* Orange for folders */
+        #fileList li.file::before { content: '📄'; color: var(--cyan); }  /* Cyan for files */
+        #fileList li strong { font-weight: bold; color: var(--blue); } /* Blue for folder/file names? */
+        #fileList li em { color: var(--grey); font-style: italic; } /* Dim color for empty message */
+
+        /* *** Added: Explicit cursor for non-editable files *** */
+        #fileList li.file:not([style*="cursor: pointer"]) {
+            cursor: default; /* Ensure non-editable files have default cursor */
+        }
+
+
+        #statusBar {
+            margin-top: 20px;
+            padding: 12px;
+            background-color: var(--bg-alt); /* Matches section bg */
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--fg-dim);
+            text-align: center;
+            font-size: 0.95em;
+        }
+        .hidden { display: none !important; }
+        .status-bar-error {
+            color: var(--red) !important;
+            background-color: rgba(247, 118, 142, 0.1) !important; /* Faint red background */
+            border: 1px solid var(--red) !important;
+            font-weight: bold;
+        }
+        .status-bar-success {
+            color: var(--green) !important;
+            background-color: rgba(158, 206, 106, 0.1) !important; /* Faint green background */
+            border: 1px solid var(--green) !important;
+        }
+        .warning {
+            color: var(--orange);
+            background-color: rgba(255, 158, 100, 0.1); /* Faint orange background */
+            border: 1px solid var(--orange);
+            border-left: 4px solid var(--orange);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .warning strong { color: var(--orange); } /* Ensure strong text inherits color */
+        .error { /* Error message style (e.g., in file list) */
+            color: var(--red);
+            font-weight: bold;
+            border-left: 4px solid var(--red);
+            padding: 10px;
+            background-color: rgba(247, 118, 142, 0.1);
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .breadcrumb {
+            margin-bottom: 15px;
+            font-size: 0.95em;
+            color: var(--grey); /* Dim text for path */
+            background-color: var(--bg); /* Darker background */
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+        .breadcrumb strong { color: var(--fg); } /* Main text color for current part */
+        .breadcrumb a { text-decoration: none; color: var(--cyan); } /* Cyan for links */
+        .breadcrumb a:hover { text-decoration: underline; color: var(--blue); } /* Blue on hover */
+        .breadcrumb span { margin: 0 5px; color: var(--border); } /* Dimmer separator */
+        hr { margin: 25px 0; border: 0; border-top: 1px solid var(--border); }
+
+        label[for="fmTocCheckbox"] {
+            display: inline-block;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-weight: normal;
+            color: var(--fg-dim); /* Match other labels */
+        }
+        input[type="checkbox"] {
+            margin-right: 8px;
+            vertical-align: middle;
+            width: auto;
+            accent-color: var(--blue); /* Use accent color for checkbox */
+        }
+
+        .controls-container {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* Specific Button Styles */
+        #deleteFileButton {
+             background-color: var(--red); /* Red for delete */
+             color: var(--bg); /* Dark text for contrast */
+        }
+        #deleteFileButton:hover:not(:disabled) {
+             background-color: #d65a70; /* Darker red */
+        }
+        #cancelEditButton {
+             background-color: var(--grey); /* Dimmer button */
+             color: var(--fg);
+        }
+         #cancelEditButton:hover:not(:disabled) {
+             background-color: var(--border);
+        }
+
+        /* --- TUI Editor Dark Theme Adjustments --- */
+        .toastui-editor-defaultUI {
+            border-color: var(--border) !important;
+            background-color: var(--bg-alt);
+        }
+        .toastui-editor-defaultUI .ProseMirror,
+        .toastui-editor-md-container .toastui-editor-md-preview {
+             background-color: var(--bg) !important;
+             /* color: var(--fg) !important; */ /* Base color set below */
+        }
+        /* Mode switch tabs */
+        .toastui-editor-mode-switch {
+            background-color: var(--bg-alt);
+            border-top-color: var(--border) !important;
+        }
+        .toastui-editor-mode-switch button {
+            color: var(--grey) !important;
+            border-color: var(--border) !important;
+        }
+         .toastui-editor-mode-switch button.active {
+             color: var(--fg) !important;
+             background-color: var(--bg) !important;
+             border-bottom-color: var(--bg) !important; /* Hide bottom border */
+         }
+         /* Scrollbars (might need vendor prefixes) */
+        .toastui-editor-contents::-webkit-scrollbar,
+        .toastui-editor-md-preview::-webkit-scrollbar {
+            width: 8px;
+        }
+        .toastui-editor-contents::-webkit-scrollbar-track,
+        .toastui-editor-md-preview::-webkit-scrollbar-track {
+            background: var(--bg-alt);
+        }
+        .toastui-editor-contents::-webkit-scrollbar-thumb,
+        .toastui-editor-md-preview::-webkit-scrollbar-thumb {
+            background-color: var(--grey);
+            border-radius: 4px;
+            border: 2px solid var(--bg-alt);
+        }
+
+        /* --- Force Text Color in TUI Editor Content Areas --- */
+        /* Set base color for the main content containers */
+        .toastui-editor-md-container .ProseMirror,
+        .toastui-editor-ww-container .ProseMirror,
+        .toastui-editor-md-preview {
+            color: var(--fg) !important; /* Default text color */
+        }
+
+        /* Target common text elements within the content areas */
+        /* This is safer than '*' but still quite broad */
+        .toastui-editor-md-container .ProseMirror p,
+        .toastui-editor-md-container .ProseMirror li,
+        .toastui-editor-md-container .ProseMirror h1,
+        .toastui-editor-md-container .ProseMirror h2,
+        .toastui-editor-md-container .ProseMirror h3,
+        .toastui-editor-md-container .ProseMirror h4,
+        .toastui-editor-md-container .ProseMirror h5,
+        .toastui-editor-md-container .ProseMirror h6,
+        .toastui-editor-md-container .ProseMirror span:not([class*="cm-"]), /* Avoid overriding CodeMirror spans */
+        .toastui-editor-md-container .ProseMirror div,
+        .toastui-editor-ww-container .ProseMirror p,
+        .toastui-editor-ww-container .ProseMirror li,
+        .toastui-editor-ww-container .ProseMirror h1,
+        .toastui-editor-ww-container .ProseMirror h2,
+        .toastui-editor-ww-container .ProseMirror h3,
+        .toastui-editor-ww-container .ProseMirror h4,
+        .toastui-editor-ww-container .ProseMirror h5,
+        .toastui-editor-ww-container .ProseMirror h6,
+        .toastui-editor-ww-container .ProseMirror span,
+        .toastui-editor-ww-container .ProseMirror div,
+        .toastui-editor-md-preview p,
+        .toastui-editor-md-preview li,
+        .toastui-editor-md-preview h1,
+        .toastui-editor-md-preview h2,
+        .toastui-editor-md-preview h3,
+        .toastui-editor-md-preview h4,
+        .toastui-editor-md-preview h5,
+        .toastui-editor-md-preview h6,
+        .toastui-editor-md-preview span,
+        .toastui-editor-md-preview div {
+            color: var(--fg) !important;
+        }
+
+        /* --- Preserve/Override Specific Element Colors --- */
+        /* Links */
+        .toastui-editor-md-container .ProseMirror a,
+        .toastui-editor-ww-container .ProseMirror a,
+        .toastui-editor-md-preview a {
+            color: var(--blue) !important; /* Keep links blue */
+        }
+        .toastui-editor-md-container .ProseMirror a:hover,
+        .toastui-editor-ww-container .ProseMirror a:hover,
+        .toastui-editor-md-preview a:hover {
+            color: var(--cyan) !important; /* Lighter blue/cyan on hover */
+        }
+
+        /* Code Blocks and Inline Code */
+        /* *** MODIFIED: Change pre background color *** */
+        .toastui-editor-md-preview pre,
+        .toastui-editor-ww-container .ProseMirror pre { /* Also target pre in WYSIWYG */
+             background-color: var(--bg-hover) !important; /* Use the desired dark grey-blue */
+             border: 1px solid var(--border) !important;
+             padding: 1em !important;
+             border-radius: 4px !important;
+             color: var(--fg-dim) !important; /* Slightly dimmer text for code blocks */
+             overflow-x: auto; /* Ensure horizontal scroll for long lines */
+        }
+        /* Inline code in preview */
+        .toastui-editor-md-preview code,
+        .toastui-editor-ww-container .ProseMirror code { /* Also target inline code in WYSIWYG */
+            background-color: rgba(122, 162, 247, 0.15) !important; /* Faint blue background */
+            color: var(--cyan) !important; /* Cyan text for inline code */
+            padding: 0.2em 0.4em !important;
+            border-radius: 3px !important;
+            font-size: 90% !important;
+            vertical-align: middle;
+        }
+         /* Code *inside* a pre block should not have the inline style */
+         .toastui-editor-md-preview pre > code,
+         .toastui-editor-ww-container .ProseMirror pre > code { /* Also target code inside pre in WYSIWYG */
+            background-color: transparent !important;
+            color: inherit !important; /* Inherit from pre */
+            padding: 0 !important;
+            border-radius: 0 !important;
+            font-size: inherit !important;
+            border: none !important;
+        }
+
+        /* Ensure cursors are visible */
+        .toastui-editor-md-container .ProseMirror .cm-cursor { border-left: 1px solid var(--fg) !important; }
+        .toastui-editor-ww-container .ProseMirror-yewrap-cursor { background-color: var(--fg) !important; }
+        .toastui-editor-ww-container .ProseMirror-gapcursor span { border-color: var(--fg) !important; }
+        .cm-fat-cursor .cm-cursor { background: var(--blue) !important; border-left: none !important; opacity: 0.6; } /* Block cursor style */
+
+        /* Adjust selection background */
+        .cm-selectionBackground, ::selection {
+             background-color: rgba(122, 162, 247, 0.2) !important; /* Faint blue selection */
+        }
+        .toastui-editor-md-container .ProseMirror-selectednode,
+        .toastui-editor-ww-container .ProseMirror-selectednode {
+             background-color: rgba(122, 162, 247, 0.2) !important; /* Selected node in WYSIWYG/MD */
+        }
+
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                padding: 0 5px;
+            }
+             #header-container {
+                 flex-direction: column;
+                 align-items: flex-start;
+                 padding-bottom: 10px;
+                 padding-left: 5px;
+                 padding-right: 5px;
+             }
+             #header-container h1 {
+                 font-size: 1.6em;
+                 margin-right: 0;
+                 margin-bottom: 10px;
+             }
+              #header-container #logoutButton {
+                   width: 100%;
+                   margin-top: 5px;
+                   text-align: center;
+              }
+
+            .section { padding: 15px; }
+            h2 { font-size: 1.3em; }
+            h3 { font-size: 1.1em; }
+
+            .controls-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .controls-container button {
+                 width: 100%;
+                 margin-right: 0;
+                 margin-bottom: 10px;
+            }
+            .controls-container button:last-child {
+                margin-bottom: 0;
+            }
+
+            input[type="text"], input[type="password"], select, textarea { padding: 10px; }
+            #fileList ul { max-height: 250px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="header-container">
+        <h1>GitHub md 에디터</h1>
+        <button id="logoutButton" class="hidden">로그아웃</button>
+    </div>
+
+    <div id="loginSection" class="section">
+        <h2>1. GitHub 로그인 (Octokit 사용)</h2>
+        <div class="warning">
+            <strong>주의:</strong> Personal Access Token (PAT)을 브라우저에 저장하거나 입력하는 것은 보안상 위험할 수 있습니다. 반드시 신뢰할 수 있는 환경에서 개인적인 용도로만 사용하고, 토큰이 외부에 노출되지 않도록 각별히 주의하세요. <strong>이 토큰은 브라우저를 닫아도 유지될 수 있으므로 (`localStorage` 사용), 사용 후에는 반드시 '로그아웃 하기' 버튼을 누르거나 브라우저의 저장된 사이트 데이터를 직접 삭제하세요.</strong> 토큰에는 <strong>'repo'</strong> 권한이 필요합니다.
+        </div>
+        <label for="patInput">Personal Access Token (PAT):</label>
+        <input type="password" id="patInput" placeholder="GitHub PAT 입력 (repo 권한 필요)">
+        <div class="controls-container">
+             <button id="loginButton">로그인</button>
+        </div>
+    </div>
+
+    <div id="repoSection" class="section hidden">
+        <h2>2. 저장소 선택</h2>
+        <label for="repoSelect">저장소:</label>
+        <select id="repoSelect"></select>
+        <div class="controls-container">
+            <button id="loadRepoButton" disabled>파일 목록 불러오기</button>
+        </div>
+    </div>
+
+    <div id="fileBrowserSection" class="section hidden">
+        <h2>3. 파일 탐색기</h2>
+        <div><strong>현재 저장소:</strong> <span id="currentRepo"></span></div>
+        <div class="breadcrumb"><strong>경로:</strong> <span id="currentPathBreadcrumb">/</span></div>
+        <div id="fileList">
+            <ul></ul>
+        </div>
+         <div class="controls-container">
+            <button id="createNewFileButton">새 파일 만들기 (Hugo)</button>
+        </div>
+    </div>
+
+    <div id="editorSection" class="section hidden">
+        <h2>4. 파일 편집기 / Front Matter (TOML)</h2>
+        <input type="hidden" id="currentFileSha">
+        <input type="hidden" id="currentFilePathInput">
+
+         <label for="fmTitleInput">Title (필수, 파일명 생성에 사용):</label>
+         <input type="text" id="fmTitleInput" placeholder="게시물 제목">
+
+         <label for="fileNameInput">파일 이름 (자동 생성/편집 가능, 확장자 .md 고정):</label>
+         <input type="text" id="fileNameInput" placeholder="my-new-post.md (Title 입력 시 자동 생성)">
+
+        <hr>
+        <h3>Hugo Front Matter (TOML)</h3>
+        <label for="fmAuthorInput">Author:</label>
+        <input type="text" id="fmAuthorInput" placeholder="작성자 (선택 사항)">
+
+        <label for="fmDateInput">Date (필수, YYYY-MM-DDTHH:MM:SSZ 형식 권장):</label>
+        <input type="text" id="fmDateInput" placeholder="예: 2023-10-27T15:04:05+09:00 또는 2023-10-27T06:04:05Z">
+
+        <label for="fmDescriptionInput">Description:</label>
+        <input type="text" id="fmDescriptionInput" placeholder="간단한 설명 (선택 사항)">
+
+        <label for="fmTagsInput">Tags (쉼표로 구분):</label>
+        <input type="text" id="fmTagsInput" placeholder="예: web, development, github">
+
+        <label for="fmCategoriesInput">Categories (쉼표로 구분):</label>
+        <input type="text" id="fmCategoriesInput" placeholder="예: tech, programming">
+
+        <div>
+             <input type="checkbox" id="fmTocCheckbox">
+             <label for="fmTocCheckbox">Table of Contents (TOC) 생성</label>
+        </div>
+        <hr>
+
+        <label for="tuiEditorContainer">파일 내용 (본문 - Markdown 등):</label>
+        <!-- Replaced textarea with this div for TUI Editor -->
+        <div id="tuiEditorContainer" style="margin-bottom: 15px;"></div>
+
+        <hr>
+        <label for="commitMessageInput">커밋 메시지 (자동 생성/편집 가능):</label>
+        <input type="text" id="commitMessageInput" placeholder="자동 생성 또는 직접 입력">
+
+        <div class="controls-container">
+            <button id="saveFileButton">저장 (생성/수정)</button>
+            <button id="deleteFileButton">삭제</button> <!-- Style overridden by CSS rule -->
+            <button id="cancelEditButton">취소</button> <!-- Style overridden by CSS rule -->
+        </div>
+    </div>
+
+    <div id="statusBar">상태: 대기 중...</div>
+
+</div>
+
+<!-- TUI Editor JavaScript (load before your module script) -->
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+
+<script type="module">
+    import { Octokit } from "https://esm.sh/octokit";
+
+    let octokit = null;
+    let selectedOwner = null;
+    let selectedRepo = null;
+    let currentPath = '';
+    let currentFiles = [];
+    let currentBranch = 'main'; // Or detect default branch later
+    const PAT_STORAGE_KEY = 'githubPat';
+
+    // --- Element References ---
+    const patInput = document.getElementById('patInput');
+    const loginButton = document.getElementById('loginButton');
+    const logoutButton = document.getElementById('logoutButton');
+    const repoSelect = document.getElementById('repoSelect');
+    const loadRepoButton = document.getElementById('loadRepoButton');
+    const fileListUl = document.querySelector('#fileList ul');
+    const currentRepoSpan = document.getElementById('currentRepo');
+    const currentPathBreadcrumb = document.getElementById('currentPathBreadcrumb');
+    const fileNameInput = document.getElementById('fileNameInput');
+    const fmTitleInput = document.getElementById('fmTitleInput');
+    const fmAuthorInput = document.getElementById('fmAuthorInput');
+    const fmDateInput = document.getElementById('fmDateInput');
+    const fmDescriptionInput = document.getElementById('fmDescriptionInput');
+    const fmTagsInput = document.getElementById('fmTagsInput');
+    const fmCategoriesInput = document.getElementById('fmCategoriesInput');
+    const fmTocCheckbox = document.getElementById('fmTocCheckbox');
+    const commitMessageInput = document.getElementById('commitMessageInput');
+    const currentFileShaInput = document.getElementById('currentFileSha');
+    const currentFilePathInput = document.getElementById('currentFilePathInput');
+    const saveFileButton = document.getElementById('saveFileButton');
+    const deleteFileButton = document.getElementById('deleteFileButton');
+    const cancelEditButton = document.getElementById('cancelEditButton');
+    const createNewFileButton = document.getElementById('createNewFileButton');
+    const statusBar = document.getElementById('statusBar');
+    const loginSection = document.getElementById('loginSection');
+    const repoSection = document.getElementById('repoSection');
+    const fileBrowserSection = document.getElementById('fileBrowserSection');
+    const editorSection = document.getElementById('editorSection');
+    const tuiEditorElement = document.getElementById('tuiEditorContainer'); // Get editor container
+
+    // --- TUI Editor Instance ---
+    let tuiEditorInstance = null;
+
+    // --- Initialize TUI Editor ---
+    function initializeTuiEditor() {
+        if (tuiEditorElement && !tuiEditorInstance) { // Initialize only once
+             try {
+                 tuiEditorInstance = new toastui.Editor({
+                     el: tuiEditorElement,
+                     height: '450px', // Adjust height as needed
+                     initialEditType: 'markdown',
+                     previewStyle: 'tab', // Or 'tab'
+                     initialValue: '', // Start empty
+                     theme: 'dark' // Apply dark theme
+                 });
+                 console.log("TUI Editor initialized.");
+             } catch (error) {
+                 console.error("Failed to initialize TUI Editor:", error);
+                 updateStatus("오류: TUI 에디터를 초기화하지 못했습니다. 페이지를 새로고침하거나 콘솔을 확인하세요.", true);
+                 if (editorSection) editorSection.classList.add('hidden');
+                 if (tuiEditorElement) tuiEditorElement.innerHTML = '<p class="error">TUI Editor 로드 실패.</p>';
+             }
+        } else if (!tuiEditorElement) {
+            console.error("TUI Editor container element (#tuiEditorContainer) not found in the DOM.");
+             updateStatus("오류: TUI Editor 컨테이너 요소를 찾을 수 없습니다.", true);
+        }
+    }
+
+    // --- Helper Functions (updateStatus, showSection, b64Encode/Decode, parse/formatFrontMatter, generateHugoFilename, etc.) ---
+    function updateStatus(message, isError = false, isSuccess = false) {
+        statusBar.textContent = `상태: ${message}`;
+        statusBar.classList.remove('status-bar-error', 'status-bar-success');
+        if (isError) statusBar.classList.add('status-bar-error');
+        else if (isSuccess) statusBar.classList.add('status-bar-success');
+        console[isError ? 'error' : 'log'](`Status Update: ${message}`);
+    }
+
+    function showSection(sectionToShow) {
+        [loginSection, repoSection, fileBrowserSection, editorSection].forEach(section => {
+            if (section) section.classList.add('hidden');
+        });
+        if (sectionToShow) {
+            sectionToShow.classList.remove('hidden');
+            // Initialize TUI Editor when the editor section is shown for the first time
+            if (sectionToShow === editorSection) {
+                initializeTuiEditor();
+            }
+        }
+    }
+
+     function b64EncodeUnicode(str) {
+        try {
+            const bytes = new TextEncoder().encode(str);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) { binary += String.fromCharCode(bytes[i]); }
+            return btoa(binary);
+        } catch (e) {
+             console.error("Base64 인코딩 실패:", e); updateStatus("Base64 인코딩 중 오류 발생.", true); throw new Error("Base64 인코딩 실패");
+        }
+    }
+
+    function b64DecodeUnicode(str) {
+        try {
+            const binary_string = atob(str);
+            const bytes = new Uint8Array(binary_string.length);
+            for (let i = 0; i < binary_string.length; i++) { bytes[i] = binary_string.charCodeAt(i); }
+            return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        } catch (e) {
+            console.error("Base64/UTF-8 디코딩 실패:", e);
+            let userMessage = 'Base64 또는 UTF-8 디코딩 중 오류 발생. ';
+            if (e instanceof DOMException && e.name === 'InvalidCharacterError') { userMessage += 'Base64 문자열이 유효하지 않습니다.'; }
+            else if (e instanceof TypeError && e.message.includes('invalid character')) { userMessage += 'Base64 문자열이 유효하지 않습니다.'; }
+            else if (e instanceof Error && e.message.includes('URI malformed')) { userMessage += '파일 내용에 잘못된 UTF-8 시퀀스가 포함되어 있을 수 있습니다.'; }
+            else if (e instanceof TypeError && e.message.includes('decode')) { userMessage += '파일 내용에 잘못된 UTF-8 시퀀스가 포함되어 있을 수 있습니다.'; }
+            else { userMessage += `(${e.message})`; }
+             updateStatus(userMessage, true); throw new Error("Base64/UTF-8 디코딩 실패: " + e.message);
+        }
+    }
+
+     function parseFrontMatter(content) {
+        const fm = { title: '', author: '', date: '', description: '', tags: [], categories: [], toc: undefined, body: content };
+        const fmRegex = /^\+\+\+([\s\S]*?)^\+\+\+([\s\S]*)/m;
+        const match = content.match(fmRegex);
+
+        if (match && match[1] !== undefined && match[2] !== undefined) {
+            const frontMatterBlock = match[1].trim();
+            fm.body = match[2].trimStart();
+            const lines = frontMatterBlock.split('\n');
+            let currentKey = null;
+            let accumulatingArrayContent = null;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i]; const trimmedLine = line.trim();
+                if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+                if (accumulatingArrayContent !== null) {
+                    accumulatingArrayContent += "\n" + line;
+                    if (line.includes(']')) {
+                        const startIndex = accumulatingArrayContent.indexOf('['); const endIndex = accumulatingArrayContent.lastIndexOf(']');
+                        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                            try {
+                                let arrayString = accumulatingArrayContent.substring(startIndex + 1, endIndex).trim(); let values = [];
+                                if (arrayString) {
+                                    values = arrayString.split(',').map(item => item.trim()).filter(item => item && !item.startsWith('#')).map(item => {
+                                        if (item.startsWith('"') && item.endsWith('"')) return item.substring(1, item.length - 1).replace(/\\"/g, '"');
+                                        if (item.startsWith("'") && item.endsWith("'")) return item.substring(1, item.length - 1).replace(/\\'/g, "'");
+                                        return item;
+                                    });
+                                }
+                                if (currentKey === 'tags' || currentKey === 'categories') { fm[currentKey] = values; }
+                            } catch (e) { console.error(`Error parsing accumulated multi-line array for key ${currentKey}:`, accumulatingArrayContent, e); updateStatus(`Front matter multi-line 배열 구문 분석 중 오류 발생 (${currentKey}): ${e.message}`, true); if (currentKey && (currentKey === 'tags' || currentKey === 'categories')) fm[currentKey] = [];
+                            } finally { accumulatingArrayContent = null; currentKey = null; }
+                        }
+                    }
+                } else {
+                    const eqIndex = trimmedLine.indexOf('=');
+                    if (eqIndex > 0) {
+                        const key = trimmedLine.substring(0, eqIndex).trim(); let valuePart = trimmedLine.substring(eqIndex + 1).trim();
+                        if ((key === 'tags' || key === 'categories') && valuePart.startsWith('[')) {
+                             const firstBracket = valuePart.indexOf('['); const lastBracket = valuePart.lastIndexOf(']');
+                             if (lastBracket > firstBracket) {
+                                try {
+                                    let arrayString = valuePart.substring(firstBracket + 1, lastBracket).trim(); let values = [];
+                                    if (arrayString) {
+                                         values = arrayString.split(',').map(item => item.trim()).filter(item => item && !item.startsWith('#')).map(item => {
+                                            if (item.startsWith('"') && item.endsWith('"')) return item.substring(1, item.length - 1).replace(/\\"/g, '"');
+                                            if (item.startsWith("'") && item.endsWith("'")) return item.substring(1, item.length - 1).replace(/\\'/g, "'");
+                                            return item;
+                                        });
+                                    } fm[key] = values;
+                                } catch(e) { console.error(`Error parsing single-line array for key ${key}:`, valuePart, e); updateStatus(`Front matter 배열 구문 분석 중 오류 발생 (${key}): ${e.message}`, true); fm[key] = []; }
+                            } else { currentKey = key; accumulatingArrayContent = valuePart; }
+                        } else {
+                            try {
+                                let parsedValue = valuePart;
+                                if (parsedValue.startsWith('"') && parsedValue.endsWith('"')) { parsedValue = parsedValue.substring(1, parsedValue.length - 1).replace(/\\"/g, '"'); }
+                                else if (parsedValue.startsWith("'") && parsedValue.endsWith("'")) { parsedValue = parsedValue.substring(1, parsedValue.length - 1).replace(/\\'/g, "'"); }
+                                else if (parsedValue === 'true') { parsedValue = true; }
+                                else if (parsedValue === 'false') { parsedValue = false; }
+                                if (['title', 'author', 'date', 'description', 'toc'].includes(key)) {
+                                     if (key === 'toc') { if (typeof parsedValue === 'boolean') { fm[key] = parsedValue; } else { console.warn(`FM parsing: Expected boolean for 'toc', got:`, parsedValue, `Ignoring.`); }}
+                                     else { fm[key] = String(parsedValue); }
+                                }
+                            } catch (parseError) { console.error(`Error parsing simple front matter line: "${line}"`, parseError); updateStatus(`Front matter 구문 분석 중 오류 발생: ${line}`, true); }
+                        }
+                    } else { console.warn(`Invalid front matter line (no '=' found, ignoring): "${trimmedLine}"`); }
+                }
+            }
+            if (accumulatingArrayContent !== null) { console.error(`Front matter parsing ended unexpectedly inside an unclosed array for key: ${currentKey}`); updateStatus(`Front matter 오류: ${currentKey} 배열이 닫히지 않았습니다.`, true); if (currentKey && (currentKey === 'tags' || currentKey === 'categories')) { fm[currentKey] = []; }}
+        } else { console.log("No TOML front matter detected or block is malformed."); }
+        return fm;
+    }
+
+     function formatFrontMatter(fmData) {
+        let fmString = '+++\n';
+        const formatTomlString = (str) => `"${String(str).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+        const formatTomlArray = (arr) => `[${arr.map(formatTomlString).join(', ')}]`;
+        if (fmData.title) fmString += `title = ${formatTomlString(fmData.title)}\n`;
+        if (fmData.date) fmString += `date = ${formatTomlString(fmData.date)}\n`;
+        if (fmData.author) fmString += `author = ${formatTomlString(fmData.author)}\n`;
+        if (fmData.description) fmString += `description = ${formatTomlString(fmData.description)}\n`;
+        if (fmData.categories && fmData.categories.length > 0) fmString += `categories = ${formatTomlArray(fmData.categories)}\n`;
+        if (fmData.tags && fmData.tags.length > 0) fmString += `tags = ${formatTomlArray(fmData.tags)}\n`;
+        if (fmData.toc === true) fmString += `toc = true\n`;
+        if (fmString === '+++\n') fmString += '\n'; // Ensure newline even if empty
+        fmString += '+++\n\n';
+        return fmString;
+    }
+
+    function generateHugoFilename(title) {
+        if (!title || typeof title !== 'string' || !title.trim()) return 'untitled.md';
+        let filename = title.trim().toLowerCase();
+        filename = filename.replace(/[\\/:\?\*"<>\|#;\$'\{\}\+=~@%^&\(\)\[\]\.!,`]/g, '');
+        filename = filename.replace(/\s+/g, '-');
+        filename = filename.replace(/^-+|-+$/g, '');
+        filename = filename || 'untitled';
+        return filename + '.md';
+    }
+
+    function updateCommitMessage() {
+        const filename = fileNameInput.value.trim();
+        const isUpdate = !!currentFileShaInput.value;
+        const originalPath = currentFilePathInput.value;
+        const currentFullPath = (currentPath ? currentPath + '/' : '') + filename;
+        const isRename = isUpdate && originalPath && filename && (originalPath !== currentFullPath);
+        let action = isUpdate ? (isRename ? "Rename/create" : "Update") : "Create";
+        let baseFilename = filename || (isUpdate ? originalPath.split('/').pop() : "new file");
+        if (baseFilename) {
+             let message = `${action} ${baseFilename}`;
+             if (isRename) { message = `Create ${filename} (renamed from ${originalPath.split('/').pop()})`; }
+             commitMessageInput.value = message; commitMessageInput.placeholder = `예: ${message}`;
+        } else { commitMessageInput.value = ''; commitMessageInput.placeholder = '자동 생성 또는 직접 입력'; }
+    }
+
+    function updateBreadcrumb() {
+        const breadcrumbContainer = document.getElementById('currentPathBreadcrumb');
+        breadcrumbContainer.innerHTML = '';
+        const rootLink = document.createElement('a'); rootLink.href = '#'; rootLink.textContent = 'root'; rootLink.onclick = (e) => { e.preventDefault(); fetchContents(''); }; breadcrumbContainer.appendChild(rootLink);
+        const pathParts = currentPath.split('/').filter(p => p); let accumulatedPath = '';
+        pathParts.forEach((part, index) => {
+            const linkPath = (accumulatedPath ? accumulatedPath + '/' : '') + part;
+            const pathSeparator = document.createElement('span'); pathSeparator.textContent = ' / '; breadcrumbContainer.appendChild(pathSeparator);
+            if (index < pathParts.length - 1) {
+                const partLink = document.createElement('a'); partLink.href = '#'; partLink.textContent = part; partLink.onclick = ((pathForLink) => (e) => { e.preventDefault(); fetchContents(pathForLink); })(linkPath); breadcrumbContainer.appendChild(partLink);
+            } else { const currentPartStrong = document.createElement('strong'); currentPartStrong.textContent = part; breadcrumbContainer.appendChild(currentPartStrong); }
+            accumulatedPath = linkPath;
+        });
+        if (pathParts.length === 0) { rootLink.outerHTML = '<strong>root</strong>'; }
+    }
+
+     function addParentDirectoryLink(currentDirPath) {
+         if (currentDirPath && currentDirPath !== '') {
+             const parentPath = currentDirPath.includes('/') ? currentDirPath.substring(0, currentDirPath.lastIndexOf('/')) : '';
+             const li = document.createElement('li'); li.innerHTML = '<strong>⬆️ .. (상위 폴더)</strong>'; li.style.cursor = 'pointer'; li.title = `상위 폴더로 이동: /${parentPath}`; li.onclick = () => fetchContents(parentPath);
+             if (fileListUl.firstChild) { fileListUl.insertBefore(li, fileListUl.firstChild); } else { fileListUl.appendChild(li); }
+         }
+    }
+
+    function clearEditorFields() {
+        fileNameInput.value = '';
+        fmTitleInput.value = '';
+        fmAuthorInput.value = '';
+        fmDateInput.value = '';
+        fmDescriptionInput.value = '';
+        fmTagsInput.value = '';
+        fmCategoriesInput.value = '';
+        fmTocCheckbox.checked = false;
+        // Clear TUI Editor content
+        if (tuiEditorInstance) {
+            tuiEditorInstance.setMarkdown('', false); // Clear content without moving cursor
+        }
+        commitMessageInput.value = '';
+        commitMessageInput.placeholder = '자동 생성 또는 직접 입력';
+        currentFileShaInput.value = '';
+        currentFilePathInput.value = '';
+        saveFileButton.disabled = true;
+        saveFileButton.textContent = '저장 (생성/수정)';
+        deleteFileButton.disabled = true;
+        cancelEditButton.disabled = true;
+    }
+
+    function handleLogout() {
+        console.log("Logging out: Clearing PAT and reloading...");
+        localStorage.removeItem(PAT_STORAGE_KEY);
+        octokit = null;
+        location.replace(location.pathname + location.search);
+    }
+
+    function resetToLoginScreen(tokenToKeepInInput = '') {
+         showSection(loginSection);
+         patInput.disabled = false; patInput.value = tokenToKeepInInput;
+         if (!patInput.value) patInput.placeholder = "GitHub PAT 입력 (repo 권한 필요)";
+         loginButton.disabled = false; loginButton.textContent = '로그인';
+         logoutButton.classList.add('hidden');
+         repoSection.classList.add('hidden'); fileBrowserSection.classList.add('hidden'); editorSection.classList.add('hidden');
+         repoSelect.innerHTML = ''; repoSelect.disabled = true; loadRepoButton.disabled = true;
+         if(createNewFileButton) createNewFileButton.disabled = true;
+         selectedOwner = null; selectedRepo = null; currentPath = ''; currentFiles = [];
+         if (currentRepoSpan) currentRepoSpan.textContent = '';
+         if (currentPathBreadcrumb) updateBreadcrumb();
+         if (fileListUl) fileListUl.innerHTML = '';
+         octokit = null; clearEditorFields();
+    }
+
+    async function authenticateAndLoadRepos(token, isAutoLogin = false) {
+        if (!token) {
+            console.error("Authentication attempt with no token provided.");
+            if (!isAutoLogin) { updateStatus('오류: GitHub PAT가 제공되지 않았습니다.', true); patInput.disabled = false; loginButton.disabled = false; loginButton.textContent = '로그인'; showSection(loginSection); }
+            else { resetToLoginScreen(); showSection(loginSection); }
+            return;
+        }
+        patInput.disabled = true; loginButton.disabled = true; loginButton.textContent = '로딩 중...'; logoutButton.classList.add('hidden'); repoSelect.disabled = true; loadRepoButton.disabled = true;
+        const statusMsg = isAutoLogin ? '저장된 PAT로 인증 및 저장소 목록 로딩 중...' : 'GitHub 인증 및 저장소 목록 로딩 중...'; updateStatus(statusMsg); let clearTokenOnAuthFailure = false;
+        try {
+            octokit = new Octokit({ auth: token });
+            const { data: user } = await octokit.rest.users.getAuthenticated();
+            console.log("Authenticated successfully as user:", user.login); logoutButton.classList.remove('hidden'); updateStatus(`사용자 '${user.login}' 인증 완료. 저장소 목록 로딩 중...`);
+            const repos = await octokit.paginate(octokit.rest.repos.listForAuthenticatedUser, { type: 'all', sort: 'updated', per_page: 100 });
+            repoSelect.innerHTML = '<option value="">-- 저장소 선택 --</option>';
+            if (repos && repos.length > 0) {
+                repos.forEach(repo => { const option = document.createElement('option'); option.value = `${repo.owner.login}/${repo.name}`; option.textContent = `${repo.full_name} (${repo.private ? 'Private' : 'Public'})`; repoSelect.appendChild(option); });
+                 if (!isAutoLogin) { localStorage.setItem(PAT_STORAGE_KEY, token); }
+                showSection(repoSection); repoSelect.disabled = false; loadRepoButton.disabled = true; updateStatus(`${repos.length}개의 접근 가능한 저장소 로드 완료. 저장소를 선택하세요.`, false, true);
+                patInput.value = '********'; patInput.disabled = true; loginButton.textContent = '인증 완료'; loginButton.disabled = true;
+            } else {
+                 if (!isAutoLogin) { localStorage.setItem(PAT_STORAGE_KEY, token); } updateStatus('인증 성공, 하지만 접근 가능한 저장소가 없습니다. PAT에 `repo` 권한이 있는지, 또는 소속된 저장소가 있는지 확인하세요.', true);
+                showSection(repoSection); repoSelect.disabled = true; loadRepoButton.disabled = true; patInput.value = '********'; patInput.disabled = true; loginButton.textContent = '인증 완료'; loginButton.disabled = true;
+            }
+        } catch (error) {
+            console.error("Authentication or Repository Fetch Error:", error); let errorMsg = `인증 또는 저장소 로딩 중 오류 발생: ${error.message}`; octokit = null;
+            if (error.status === 401) { errorMsg = `GitHub API 인증 오류 (401): PAT가 유효하지 않거나 필요한 'repo' 권한이 없습니다. PAT를 확인하고 다시 시도하세요.`; clearTokenOnAuthFailure = true; }
+            else if (error.status === 403) { errorMsg = `GitHub API 접근 오류 (403): 권한 문제 또는 API 속도 제한일 수 있습니다. 잠시 후 다시 시도하거나 GitHub 설정을 확인하세요.`; }
+            else if (error.status === 404) { errorMsg = `GitHub API 엔드포인트 오류 (404): 사용자 또는 인증 관련 엔드포인트를 찾을 수 없습니다.`; }
+            else { errorMsg = `GitHub API 통신 오류 (${error.status || 'Network Error'}): ${error.message}. 인터넷 연결 및 GitHub 상태를 확인하세요.`; }
+            updateStatus(errorMsg, true);
+            if (clearTokenOnAuthFailure) { localStorage.removeItem(PAT_STORAGE_KEY); resetToLoginScreen(''); }
+            else { resetToLoginScreen(isAutoLogin ? '' : token); }
+             showSection(loginSection); logoutButton.classList.add('hidden');
+        }
+    }
+
+    // --- Event Listeners (Login, Logout, Repo Select/Load) ---
+    loginButton.addEventListener('click', () => {
+        const tokenFromInput = patInput.value.trim();
+        if (!tokenFromInput) { updateStatus('오류: GitHub Personal Access Token (PAT)를 입력해주세요.', true); patInput.focus(); return; }
+        authenticateAndLoadRepos(tokenFromInput, false);
+    });
+    logoutButton.addEventListener('click', handleLogout);
+    repoSelect.addEventListener('change', () => { loadRepoButton.disabled = repoSelect.value === ''; });
+    loadRepoButton.addEventListener('click', () => {
+        const selectedRepoFullName = repoSelect.value;
+        if (!selectedRepoFullName || !selectedRepoFullName.includes('/')) { updateStatus("오류: 유효한 저장소를 선택해주세요.", true); return; };
+        if (!octokit || !localStorage.getItem(PAT_STORAGE_KEY)) { updateStatus("오류: 인증 정보가 유효하지 않습니다. 다시 로그인해주세요.", true); handleLogout(); return; }
+        [selectedOwner, selectedRepo] = selectedRepoFullName.split('/');
+        if(currentRepoSpan) currentRepoSpan.textContent = selectedRepoFullName;
+        updateStatus(`'${selectedRepoFullName}' 저장소의 루트 폴더 로딩 중...`); repoSelect.disabled = true; loadRepoButton.disabled = true; fileBrowserSection.classList.add('hidden'); editorSection.classList.add('hidden');
+        fetchContents('');
+    });
+
+    // --- Core Logic Functions (fetchContents, fetchFileContent) ---
+     async function fetchContents(path) {
+         const token = localStorage.getItem(PAT_STORAGE_KEY); if (!token || !octokit) { updateStatus("오류: 인증 정보가 없습니다. 로그아웃합니다.", true); handleLogout(); return; }
+         if (!selectedOwner || !selectedRepo) { updateStatus("오류: 저장소 정보가 설정되지 않았습니다. 저장소를 먼저 선택하세요.", true); showSection(repoSection); repoSelect.disabled = false; loadRepoButton.disabled = repoSelect.value === ''; return; }
+        currentPath = path; updateBreadcrumb(); fileListUl.innerHTML = `<li><em><center>폴더 내용 로딩 중...</center></em></li>`; fileListUl.style.pointerEvents = 'none'; showSection(fileBrowserSection); editorSection.classList.add('hidden'); createNewFileButton.disabled = true; updateStatus(`'${selectedOwner}/${selectedRepo}/${path || 'root'}' 내용 로딩 중...`);
+        try {
+            const { data: contents } = await octokit.rest.repos.getContent({ owner: selectedOwner, repo: selectedRepo, path: path, ref: currentBranch });
+            const contentList = Array.isArray(contents) ? contents : [contents];
+            currentFiles = contentList.filter(item => item.type === 'file' || item.type === 'dir').sort((a, b) => { if (a.type !== b.type) return a.type === 'dir' ? -1 : 1; return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }); });
+            fileListUl.innerHTML = ''; addParentDirectoryLink(path);
+            if (currentFiles.length > 0) {
+                currentFiles.forEach(item => {
+                    const li = document.createElement('li'); li.textContent = item.name; li.classList.add(item.type); li.dataset.path = item.path; li.dataset.type = item.type; li.dataset.sha = item.sha;
+                    if (item.type === 'dir') { li.onclick = () => fetchContents(item.path); li.title = `폴더 열기: ${item.path}`; }
+                    else if (item.type === 'file') {
+                        const isEditable = /\.md$/i.test(item.name);
+                        if (isEditable) { li.title = `파일 수정: ${item.path}`; li.style.cursor = 'pointer'; li.onclick = () => fetchFileContent(item.path, item.sha); }
+                        else { li.style.cursor = 'default'; li.style.color = 'var(--grey)'; li.title = `이 에디터는 Hugo .md 파일만 편집 가능 (${item.name})`; li.onclick = (e) => e.stopPropagation(); }
+                    } fileListUl.appendChild(li);
+                });
+             } else { const li = document.createElement('li'); li.innerHTML = `<em><center>${path === '' ? '(저장소 루트가 비어 있습니다)' : '(폴더가 비어 있습니다)'}</center></em>`; li.style.cursor = 'default'; fileListUl.appendChild(li); }
+             updateStatus(`'${selectedOwner}/${selectedRepo}/${path || 'root'}' 로드 완료.`, false, true);
+        } catch (error) {
+             console.error("Fetch Contents Error:", error); let errorMsg = `폴더 내용 로드 실패 (${path || 'root'}): ${error.message}`;
+              if (error.status === 404) { errorMsg = `경로 '${path || 'root'}'을(를) 찾을 수 없습니다 (404). 저장소 또는 브랜치를 확인하세요.`; }
+              else if (error.status === 403) { errorMsg = `이 저장소 또는 경로에 접근할 권한이 없습니다 (403). PAT 권한을 확인하세요.`; }
+              else if (error.status === 401) { errorMsg = `GitHub API 인증 오류 (401): PAT가 만료되었거나 유효하지 않습니다. 로그아웃합니다.`; updateStatus(errorMsg, true); handleLogout(); return; }
+             updateStatus(errorMsg, true); fileListUl.innerHTML = ''; addParentDirectoryLink(path); const errorLi = document.createElement('li'); errorLi.className = 'error'; errorLi.style.cursor = 'default'; errorLi.textContent = `오류: 폴더 내용을 불러올 수 없습니다. (${error.message})`; fileListUl.appendChild(errorLi);
+        } finally {
+             if (octokit) { createNewFileButton.disabled = false; repoSelect.disabled = false; loadRepoButton.disabled = repoSelect.value === ''; }
+             if (fileListUl) fileListUl.style.pointerEvents = 'auto';
+        }
+    }
+
+    async function fetchFileContent(filePath, fileSha) {
+         if (!octokit) { handleLogout(); return; }
+         if (!selectedOwner || !selectedRepo) { updateStatus("오류: 저장소 정보가 설정되지 않았습니다.", true); showSection(repoSection); return; }
+
+        updateStatus(`'${filePath}' 파일 내용 로딩 중...`);
+        createNewFileButton.disabled = true;
+        if (fileListUl) fileListUl.style.pointerEvents = 'none';
+
+        // *** CHANGE 1: Clear fields *before* potentially showing the editor section ***
+        clearEditorFields();
+
+        // *** CHANGE 2: Show editor section *before* trying to set content ***
+        // This ensures initializeTuiEditor() is called by showSection if needed
+        showSection(editorSection);
+
+        try {
+             const { data: blobData } = await octokit.rest.git.getBlob({ owner: selectedOwner, repo: selectedRepo, file_sha: fileSha });
+             if (!blobData || typeof blobData.content === 'undefined' || blobData.encoding !== 'base64' || !blobData.sha) {
+                throw new Error('API 응답 형식이 잘못되었습니다 (Blob). 내용이나 인코딩 속성이 없습니다.');
+             }
+             const sizeLimit = 1 * 1024 * 1024;
+             if (blobData.size > sizeLimit) {
+                updateStatus(`경고: 파일 크기(${(blobData.size / 1024 / 1024).toFixed(2)} MB)가 커서 로딩/저장이 느릴 수 있습니다.`, false); // Changed to non-error status
+             }
+
+             const decodedContent = b64DecodeUnicode(blobData.content);
+             const parsedData = parseFrontMatter(decodedContent);
+
+             // Populate form fields first
+             fileNameInput.value = filePath.substring(filePath.lastIndexOf('/') + 1);
+             fmTitleInput.value = parsedData.title || '';
+             fmAuthorInput.value = parsedData.author || '';
+             fmDateInput.value = parsedData.date || '';
+             fmDescriptionInput.value = parsedData.description || '';
+             fmTagsInput.value = (parsedData.tags || []).join(', ');
+             fmCategoriesInput.value = (parsedData.categories || []).join(', ');
+             fmTocCheckbox.checked = (parsedData.toc === true);
+
+             // *** CHANGE 3: Now it's safe to set content because showSection has run ***
+             if (tuiEditorInstance) {
+                 tuiEditorInstance.setMarkdown(parsedData.body || '', false); // Set content without moving cursor
+             } else {
+                 // This case should be much rarer now, but good to keep a check
+                 console.error("TUI Editor not initialized when trying to set content, even after showing section.");
+                 updateStatus("오류: 에디터가 준비되지 않아 내용을 표시할 수 없습니다. 페이지 새로고침을 시도하세요.", true);
+                 showSection(fileBrowserSection); // Go back if editor initialization really failed
+                 return;
+             }
+
+             // Update state and controls
+             currentFileShaInput.value = blobData.sha;
+             currentFilePathInput.value = filePath;
+             saveFileButton.textContent = '저장 (수정)';
+             saveFileButton.disabled = false;
+             deleteFileButton.disabled = false;
+             cancelEditButton.disabled = false;
+             updateCommitMessage();
+
+             updateStatus(`'${filePath}' 로드 완료. 편집 가능합니다.`, false, true);
+             // showSection(editorSection); // Already called earlier
+
+        } catch (error) {
+            console.error(`Fetch File Content Error (${filePath}, SHA: ${fileSha}):`, error);
+            let errorMsg = `파일 내용 로딩 실패 (${filePath}): ${error.message}`;
+             // --- More specific error messages ---
+             if (error.status === 404) { errorMsg = `파일 Blob (SHA: ${fileSha})을(를) 찾을 수 없습니다 (404). 파일이 삭제되었거나 SHA가 변경되었을 수 있습니다.`; }
+             else if (error.status === 403) { errorMsg = `이 파일 Blob에 접근할 권한이 없습니다 (403).`; }
+             else if (error.status === 422) { errorMsg = `잘못된 요청 (422): SHA '${fileSha}' 형식이 올바르지 않을 수 있습니다.`; }
+             else if (error.message.includes('Base64') || error.message.includes('UTF-8') || error.message.includes('decode')) { errorMsg = `파일 디코딩 실패: ${error.message}`; }
+             else if (error.message.includes('Blob is too big')) { errorMsg = `GitHub API 오류: 파일 내용이 너무 큽니다 (GitHub 제한 초과).`; }
+             else if (error.status === 401) { errorMsg = `GitHub API 인증 오류 (401): PAT 만료됨. 로그아웃합니다.`; updateStatus(errorMsg, true); handleLogout(); return; }
+             // --- Generic message for other errors ---
+             // else { errorMsg = `파일 내용 로딩 중 예상치 못한 오류: ${error.message}`; } // Already covered by default
+
+            updateStatus(errorMsg, true);
+            // *** CHANGE 4: Ensure we hide the editor and show the browser on error ***
+            showSection(fileBrowserSection);
+        } finally {
+            // Re-enable controls that were disabled at the start
+            if (octokit) {
+                createNewFileButton.disabled = false;
+                 if (fileListUl) fileListUl.style.pointerEvents = 'auto';
+            }
+        }
+    }
+
+    // --- Editor Actions (Create New, Save, Delete, Cancel) ---
+    createNewFileButton.addEventListener('click', () => {
+        if (!octokit) { handleLogout(); return; }
+        clearEditorFields(); // Resets form and TUI editor content
+        try {
+            const now = new Date(); const offsetMinutes = now.getTimezoneOffset(); const offsetSign = offsetMinutes <= 0 ? '+' : '-'; const offsetHoursAbs = Math.abs(offsetMinutes / 60); const offsetMinsAbs = Math.abs(offsetMinutes % 60); const timezoneString = offsetMinutes === 0 ? 'Z' : `${offsetSign}${String(Math.floor(offsetHoursAbs)).padStart(2, '0')}:${String(offsetMinsAbs).padStart(2, '0')}`; const pad = (num) => String(num).padStart(2, '0'); const localISOString = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${timezoneString}`; fmDateInput.value = localISOString;
+        } catch (e) { console.error("Error generating default date:", e); fmDateInput.placeholder = 'YYYY-MM-DDTHH:MM:SSZ 형식으로 직접 입력하세요'; }
+        currentFileShaInput.value = ''; currentFilePathInput.value = ''; deleteFileButton.disabled = true; saveFileButton.textContent = '저장 (생성)'; saveFileButton.disabled = false; cancelEditButton.disabled = false; updateCommitMessage(); updateStatus('새 파일 생성 준비 완료. Title 입력 시 파일명/커밋 자동 생성.');
+        showSection(editorSection); // Show editor (will ensure TUI is initialized)
+        fmTitleInput.focus();
+    });
+
+     saveFileButton.addEventListener('click', async () => {
+         if (!octokit) { handleLogout(); return; } if (!selectedOwner || !selectedRepo) { updateStatus("오류: 저장할 저장소가 선택되지 않았습니다.", true); showSection(repoSection); return; }
+
+         // Get body content from TUI Editor
+         let fileBodyContent = '';
+         if (tuiEditorInstance) {
+             fileBodyContent = tuiEditorInstance.getMarkdown();
+         } else {
+              updateStatus("오류: TUI 에디터 인스턴스를 찾을 수 없어 내용을 가져올 수 없습니다.", true); return;
+         }
+
+         let fileName = fileNameInput.value.trim(); let commitMessage = commitMessageInput.value.trim(); const existingBlobSha = currentFileShaInput.value; const originalFullPath = currentFilePathInput.value; const isUpdateOperation = !!existingBlobSha && !!originalFullPath;
+         const titleValue = fmTitleInput.value.trim(); if (!titleValue) { updateStatus("오류: Front Matter 'Title'은 필수 항목입니다.", true); fmTitleInput.focus(); return; }
+         if (!fileName) {
+             fileName = generateHugoFilename(titleValue); fileNameInput.value = fileName;
+             if (!fileName || fileName === '.md') { updateStatus('오류: 제목으로부터 유효한 파일 이름을 생성할 수 없습니다.', true); fileNameInput.focus(); return; }
+             updateCommitMessage(); commitMessage = commitMessageInput.value.trim();
+         }
+         if (fileName.includes('/')) { updateStatus("오류: 파일 이름에는 슬래시('/')를 포함할 수 없습니다. 경로는 파일 탐색기에서 선택하세요.", true); fileNameInput.focus(); return; }
+         if (!fileName.toLowerCase().endsWith('.md')) { fileName += '.md'; fileNameInput.value = fileName; updateStatus("경고: 파일 이름에 '.md' 확장자가 자동으로 추가되었습니다.", false); updateCommitMessage(); commitMessage = commitMessageInput.value.trim(); }
+         const dateValue = fmDateInput.value.trim(); if (!dateValue) { updateStatus("오류: Front Matter 'Date'는 필수 항목입니다.", true); fmDateInput.focus(); return; }
+         if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$/i.test(dateValue)) { updateStatus("오류: 'Date' 형식이 올바르지 않습니다 (YYYY-MM-DDTHH:MM:SSZ 또는 YYYY-MM-DDTHH:MM:SS+/-HH:MM 형식 권장).", true); fmDateInput.focus(); return; }
+         const defaultCreateMsg = `Create ${fileName}`; const defaultUpdateMsg = `Update content for ${fileName}`;
+         if (!commitMessage || commitMessage === defaultCreateMsg || commitMessage === defaultUpdateMsg) { updateCommitMessage(); commitMessage = commitMessageInput.value.trim(); }
+         if (!commitMessage) { updateStatus("오류: 커밋 메시지를 입력해야 합니다.", true); commitMessageInput.focus(); return; }
+
+         const fmData = { title: titleValue, author: fmAuthorInput.value.trim(), date: dateValue, description: fmDescriptionInput.value.trim(), tags: fmTagsInput.value.split(',').map(t => t.trim()).filter(t => t), categories: fmCategoriesInput.value.split(',').map(c => c.trim()).filter(c => c), toc: fmTocCheckbox.checked };
+         let finalContent; try { finalContent = formatFrontMatter(fmData) + fileBodyContent; } catch (formatError) { updateStatus(`Front Matter 생성 중 오류 발생: ${formatError.message}`, true); return; }
+
+         const targetBasePath = currentPath ? currentPath + '/' : ''; const targetFullPath = targetBasePath + fileName; const isRename = isUpdateOperation && (targetFullPath !== originalFullPath);
+         if (isRename) {
+              if (!confirm(`파일 이름 또는 경로가 변경되었습니다.\n\n기존 경로: '${originalFullPath}'\n새 경로: '${targetFullPath}'\n\n새 경로에 파일을 생성합니다 (기존 파일은 삭제되지 않습니다).\n계속하시겠습니까?`)) { updateStatus("이름 변경/파일 생성 작업이 취소되었습니다.", false); return; }
+              const oldFilenameOnly = originalFullPath.substring(originalFullPath.lastIndexOf('/') + 1); const defaultRenameCommit = `Create ${fileName} (renamed from ${oldFilenameOnly})`;
+              if (commitMessage === `Update content for ${oldFilenameOnly}` || commitMessage === `Update ${oldFilenameOnly}`) { // Check older format too
+                  commitMessageInput.value = defaultRenameCommit; commitMessage = defaultRenameCommit;
+              }
+              updateStatus("파일 이름 변경 확인됨. 새 경로에 생성 중...", false);
+         }
+         updateStatus(`'${targetFullPath}' 저장 중...`); saveFileButton.disabled = true; cancelEditButton.disabled = true; deleteFileButton.disabled = true;
+         let encodedContent; try { encodedContent = b64EncodeUnicode(finalContent); } catch(encodeError) { updateStatus(`파일 내용 인코딩 실패: ${encodeError.message}`, true); saveFileButton.disabled = false; cancelEditButton.disabled = false; deleteFileButton.disabled = isUpdateOperation && !isRename; return; }
+         try {
+             const params = { owner: selectedOwner, repo: selectedRepo, path: targetFullPath, message: commitMessage, content: encodedContent, branch: currentBranch };
+             // IMPORTANT: Only include SHA if updating the *same* path
+             if (isUpdateOperation && !isRename) {
+                 params.sha = existingBlobSha;
+             }
+             const { data: result } = await octokit.rest.repos.createOrUpdateFileContents(params);
+             const action = isUpdateOperation ? (isRename ? '이름 변경으로 생성' : '수정') : '생성';
+             updateStatus(`'${targetFullPath}' ${action} 완료. 커밋 SHA: ${result?.commit?.sha?.substring(0, 7)}`, false, true);
+             clearEditorFields(); showSection(fileBrowserSection);
+             const refreshPath = targetBasePath.endsWith('/') ? targetBasePath.slice(0, -1) : targetBasePath; fetchContents(refreshPath || '');
+             if (isRename) { alert(`파일 '${targetFullPath}' 생성(이름 변경) 성공.\n\n알림: 기존 파일 '${originalFullPath}'은(는) 삭제되지 않았습니다. 필요시 직접 삭제해주세요.`); }
+         } catch (error) {
+             console.error("Save File Error:", error); let errorMsg = `파일 저장 실패 (${targetFullPath}): ${error.message}`;
+             if (error.status === 409) { errorMsg = `파일 저장 충돌 (409): 파일이 서버에서 변경되었습니다. 페이지를 새로고침하고 다시 시도하세요.`; }
+             else if (error.status === 422) { errorMsg = `잘못된 요청 (422): 커밋 메시지, 경로, 내용 또는 SHA(${existingBlobSha})가 올바르지 않을 수 있습니다.`; if (isUpdateOperation && !isRename) errorMsg += ` 기존 파일 SHA가 유효한지 확인하세요.`; }
+             else if (error.status === 404 && isUpdateOperation && !isRename) { errorMsg = `업데이트 대상 파일을 찾을 수 없음 (404): 원본 파일 '${originalFullPath}' (SHA: ${existingBlobSha})이 삭제되었거나 경로가 이동했을 수 있습니다.`; }
+             else if (error.status === 403) { errorMsg = `파일 저장 권한 오류 (403): 이 저장소 또는 브랜치에 쓰기 권한이 없습니다.`; }
+             else if (error.status === 401) { errorMsg = `GitHub API 인증 오류 (401): PAT가 만료되었거나 유효하지 않습니다. 로그아웃합니다.`; updateStatus(errorMsg, true); handleLogout(); return; }
+             else if (error.message.toLowerCase().includes('empty path')) { errorMsg = `파일 저장 실패: 파일 경로(이름)가 비어 있습니다. 파일 이름을 확인하세요.` }
+             updateStatus(errorMsg, true); saveFileButton.disabled = false; cancelEditButton.disabled = false; deleteFileButton.disabled = !(isUpdateOperation && !isRename);
+         }
+     });
+
+    deleteFileButton.addEventListener('click', async () => {
+         if (!octokit) { handleLogout(); return; } if (!selectedOwner || !selectedRepo) { updateStatus("오류: 삭제할 저장소가 선택되지 않았습니다.", true); showSection(repoSection); return; }
+        const filePathToDelete = currentFilePathInput.value; const fileShaToDelete = currentFileShaInput.value; const filenameOnly = filePathToDelete ? filePathToDelete.substring(filePathToDelete.lastIndexOf('/') + 1) : '알 수 없는 파일';
+        if (!filePathToDelete || !fileShaToDelete) { updateStatus("오류: 삭제할 파일의 경로 또는 SHA 정보가 부족합니다. 파일을 다시 로드해주세요.", true); return; }
+        if (!confirm(`정말로 '${filenameOnly}' 파일을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다!`)) { updateStatus("파일 삭제 작업이 취소되었습니다.", false); return; }
+        let commitMessage = commitMessageInput.value.trim();
+        if (!commitMessage || commitMessage.toLowerCase().startsWith('update ') || commitMessage.toLowerCase().startsWith('create ') || commitMessage.toLowerCase().startsWith('rename/create ')) { commitMessage = `Delete ${filenameOnly}`; commitMessageInput.value = commitMessage; }
+         if (!commitMessage) { updateStatus("오류: 삭제 작업을 위한 커밋 메시지가 필요합니다.", true); commitMessageInput.focus(); return; }
+        updateStatus(`'${filePathToDelete}' 삭제 중...`); saveFileButton.disabled = true; cancelEditButton.disabled = true; deleteFileButton.disabled = true;
+        try {
+            await octokit.rest.repos.deleteFile({ owner: selectedOwner, repo: selectedRepo, path: filePathToDelete, message: commitMessage, sha: fileShaToDelete, branch: currentBranch });
+            updateStatus(`'${filePathToDelete}' 삭제 완료.`, false, true); clearEditorFields(); showSection(fileBrowserSection);
+            const parentDir = filePathToDelete.includes('/') ? filePathToDelete.substring(0, filePathToDelete.lastIndexOf('/')) : ''; fetchContents(parentDir);
+        } catch (error) {
+            console.error("Delete File Error:", error); let errorMsg = `파일 삭제 실패 (${filePathToDelete}): ${error.message}`;
+             if (error.status === 404) { errorMsg = `삭제할 파일을 찾을 수 없음 (404) 또는 파일 내용이 변경됨 (SHA: ${fileShaToDelete}). 페이지를 새로고침하고 다시 시도하세요.`; }
+             else if (error.status === 409) { errorMsg = `삭제 중 충돌 발생 (409). 다른 변경사항이 있었을 수 있습니다.`; }
+             else if (error.status === 422) { errorMsg = `잘못된 요청 (422): 삭제에 필요한 정보 (경로, SHA 등)가 올바르지 않을 수 있습니다.`; }
+             else if (error.status === 403) { errorMsg = `파일 삭제 권한 오류 (403): 이 저장소 또는 브랜치에 삭제 권한이 없습니다.`; }
+             else if (error.status === 401) { errorMsg = `GitHub API 인증 오류 (401): PAT가 만료되었거나 유효하지 않습니다. 로그아웃합니다.`; updateStatus(errorMsg, true); handleLogout(); return; }
+            updateStatus(errorMsg, true); saveFileButton.disabled = true; cancelEditButton.disabled = false; deleteFileButton.disabled = (error.status === 404);
+        }
+    });
+
+    cancelEditButton.addEventListener('click', () => {
+        if (!octokit) { resetToLoginScreen(); return; }
+        const isNewFile = !currentFileShaInput.value && !currentFilePathInput.value;
+        let hasUnsavedContent = false;
+         // Check TUI Editor content along with title/filename
+         if (tuiEditorInstance) {
+             const editorContent = tuiEditorInstance.getMarkdown().trim();
+             hasUnsavedContent = isNewFile
+                ? (fmTitleInput.value.trim() || editorContent || fileNameInput.value.trim())
+                : (fmTitleInput.value.trim() || editorContent); // Simpler check for existing files, focus on title/body
+                 // Add more checks if needed, e.g., compare original content if stored
+         } else {
+             // Fallback check if editor isn't available
+             hasUnsavedContent = isNewFile
+                ? (fmTitleInput.value.trim() || fileNameInput.value.trim())
+                : (fmTitleInput.value.trim());
+         }
+        let confirmed = true; if (hasUnsavedContent) { confirmed = confirm("편집 중인 내용이 있습니다. 저장하지 않고 취소하시겠습니까?"); }
+        if (confirmed) { clearEditorFields(); updateStatus('편집 작업 취소됨.'); showSection(fileBrowserSection); }
+        else { updateStatus('취소 작업 중단됨.'); }
+    });
+
+    // --- Input Event Listeners (Auto-generate filename/commit msg) ---
+     fmTitleInput.addEventListener('input', () => {
+         const title = fmTitleInput.value; const isNewFile = !currentFileShaInput.value; const currentFilename = fileNameInput.value.trim();
+         // Only auto-generate if new file OR filename is empty
+         if (isNewFile || !currentFilename) {
+             if (title.trim()) { fileNameInput.value = generateHugoFilename(title); }
+             else { fileNameInput.value = ''; } // Clear filename if title is cleared
+         }
+         updateCommitMessage(); // Update commit msg whenever title changes
+    });
+    // Update commit message if filename is manually changed
+    fileNameInput.addEventListener('input', updateCommitMessage);
+
+    // --- Application Initialization ---
+    function initializeApp() {
+        console.log("Initializing GitHub Editor...");
+        clearEditorFields(); // Clears form fields and attempts to clear TUI Editor if initialized
+        logoutButton.classList.add('hidden');
+        const storedPat = localStorage.getItem(PAT_STORAGE_KEY);
+        if (storedPat) {
+            console.log("Stored PAT found. Attempting auto-login...");
+            patInput.value = '********'; patInput.disabled = true; loginButton.disabled = true; loginButton.textContent = '자동 로그인 중...';
+            authenticateAndLoadRepos(storedPat, true);
+        } else {
+            console.log("No stored PAT found. Displaying login screen.");
+            resetToLoginScreen();
+            updateStatus('시작: GitHub Personal Access Token (PAT)를 입력하고 로그인하세요.');
+        }
+        // TUI Editor is initialized lazily when the editor section is shown
+    }
+
+    // --- Storage Event Listener ---
+    window.addEventListener('storage', (event) => {
+        if (event.key === PAT_STORAGE_KEY) {
+            if (event.newValue === null && octokit) {
+                console.log('Logout detected from another tab via storage event.');
+                updateStatus('다른 탭 또는 창에서 로그아웃되었습니다. 이 창도 로그아웃됩니다.', false);
+                 setTimeout(handleLogout, 1500);
+            }
+        }
+    });
+
+    // Start the application
+    initializeApp();
+
+</script>
+
+</body>
+</html>
