@@ -1,7 +1,7 @@
 {{ define "main" }}
   <h1>{{ .Title }}</h1>
   <ul>
-    {{ range .Paginator.Pages }}
+    {{ range .Paginator.Pages.ByLastmod.Reverse }}
       <li>
         <a href="{{ .RelPermalink }}">{{ .Title }}</a>
         <p>{{ .Summary }}</p>
