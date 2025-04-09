@@ -10,19 +10,23 @@
     {{ end }}
   </ul>
 
-  <!-- 페이지네이션 -->
   <div style="margin-left: 1em;">
     {{ if .Paginator.HasPrev }}
       <a href="{{ .Paginator.Prev.URL }}">«</a>
     {{ end }}
 
     {{ range .Paginator.Pagers }}
+    {{ if eq .PageNumber .Paginator.PageNumber }}
+      <a href="{{ .URL }}" style="font-weight: bold;">{{ .PageNumber }}</a>
+    {{ else }}
       <a href="{{ .URL }}">{{ .PageNumber }}</a>
+    {{ end }}
     {{ end }}
 
     {{ if .Paginator.HasNext }}
       <a href="{{ .Paginator.Next.URL }}">»</a>
     {{ end }}
+  </div>
   </div>
 {{ end }}
 
