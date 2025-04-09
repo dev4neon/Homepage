@@ -5,7 +5,11 @@
     {{ range .Paginator.Pages }}
       <li>
         <a href="{{ .RelPermalink }}">{{ .Title }}</a>
-        <span style="margin-left: 1em; font-size: 0.8em;">@ {{ .Date.Format "2006-01-02" }}</span>
+        <span style="margin-left: 1em; font-size: 0.8em;">
+          <a href="{{ "archives/" }}{{ .Date.Format "2006/01/" }}">
+            @ {{ .Date.Format "2006-01-02" }}
+          </a>
+        </span>
       </li>
     {{ end }}
   </ul>
