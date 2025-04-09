@@ -5,21 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub 파일 에디터 (Octokit + Hugo)</title>
     <style>
-        body { font-family: sans-serif; line-height: 1.6; padding: 20px; background-color: #f4f4f4; color: #333; }
-        .container { max-width: 900px; margin: 20px auto; background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .section { margin-bottom: 25px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; background-color: #fff; }
+        body { font-family: sans-serif; line-height: 1.6; padding: 0px; background-color: #f4f4f4; color: #333; }
+        .container {
+        max-width: 900px; /* 최대 너비 유지 */
+        margin: 20px auto; /* 상하 여백 및 중앙 정렬 유지 */
+        }
+
+        .section {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fff;
+        }
         h1, h2, h3 { color: #0056b3; }
         h1 { text-align: center; margin-bottom: 30px; }
         h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
         h3 { margin-top: 20px; margin-bottom: 10px; color: #333; }
         label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
         input[type="text"], input[type="password"], select, textarea {
-            width: 100%; /* Use 100% width */
+            width: 100%;
             padding: 12px;
             margin-bottom: 12px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+            box-sizing: border-box;
             font-size: 1rem;
         }
         textarea { height: 350px; font-family: 'Courier New', Courier, monospace; line-height: 1.5; }
@@ -31,7 +40,7 @@
             border-radius: 4px;
             cursor: pointer;
             margin-right: 8px;
-            margin-top: 10px; /* Add some top margin */
+            margin-top: 10px;
             font-size: 1rem;
             transition: background-color 0.2s ease;
         }
@@ -40,11 +49,11 @@
         #fileList ul { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;}
         #fileList li { padding: 10px 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; transition: background-color 0.2s ease;}
         #fileList li:last-child { border-bottom: none; }
-        #fileList li:hover { background-color: #f0f8ff; } /* Light blue hover */
+        #fileList li:hover { background-color: #f0f8ff; }
         #fileList li::before { margin-right: 10px; font-size: 1.1em; }
-        #fileList li.dir::before { content: '📁'; color: #ffac33; } /* Folder color */
-        #fileList li.file::before { content: '📄'; color: #6c757d; } /* File color */
-        #fileList li strong { font-weight: bold; color: #0056b3; } /* For '..' link */
+        #fileList li.dir::before { content: '📁'; color: #ffac33; }
+        #fileList li.file::before { content: '📄'; color: #6c757d; }
+        #fileList li strong { font-weight: bold; color: #0056b3; }
         #statusBar { margin-top: 20px; padding: 10px; background-color: #e9ecef; border-radius: 4px; color: #495057; font-style: italic; text-align: center;}
         .hidden { display: none; }
         .status-bar-error { color: #721c24 !important; background-color: #f8d7da !important; border: 1px solid #f5c6cb !important; font-weight: bold; }
@@ -57,12 +66,12 @@
         .breadcrumb a:hover { text-decoration: underline; }
         .breadcrumb span { margin: 0 5px; color: #aaa; }
         hr { margin: 25px 0; border: 0; border-top: 1px solid #eee; }
-        /* Style for inline checkbox label */
         label[for="fmTocCheckbox"] { display: inline-block; margin-right: 10px; margin-bottom: 10px; font-weight: normal; }
-        input[type="checkbox"] { margin-right: 8px; vertical-align: middle; width: auto; /* Override default width */ }
+        input[type="checkbox"] { margin-right: 8px; vertical-align: middle; width: auto; }
+    
         /* Responsive */
         @media (max-width: 600px) {
-            .container { padding: 15px; }
+            /* .section 에 대한 별도 마진 설정 제거 -> 기본값(좌우 1%)이 적용됨 */
             button { width: 100%; margin-right: 0; margin-bottom: 10px; }
             input[type="text"], input[type="password"], select, textarea { padding: 10px; }
         }
