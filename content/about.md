@@ -1,6 +1,6 @@
 +++
 title = "About"
-date = "2024-05-15T15:00:00Z"
+date = "2025-04-09T15:21:00Z"
 author = "Hugo Authors"
 description = "Hugo, the world's fastest framework for building websites"
 +++
