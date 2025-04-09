@@ -687,8 +687,8 @@
                     option.textContent = `${repo.full_name} (${repo.private ? 'Private' : 'Public'})`;
                     repoSelect.appendChild(option);
                 });
-                repoSelect.selectedIndex = 0; // Ensure placeholder is selected
-                loadRepoButton.disabled = true; // Disable load button until selection
+                repoSelect.selectedIndex = 1; // Ensure placeholder is selected
+                loadRepoButton.disabled = false; // Disable load button until selection
                 updateStatus(`${repos.length}개의 저장소 로드 완료. 목록에서 선택하세요.`, false, true);
                 showSection(repoSection); // Show repository selection section
                 // Keep login section elements disabled as login was successful
