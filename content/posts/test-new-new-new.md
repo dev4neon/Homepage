@@ -1,5 +1,5 @@
 +++
-title = "test new"
+title = "test new new new"
 date = "2025-04-09T16:42:40+09:00"
 author = "neon"
 description = "간단한 테스트임니당"
